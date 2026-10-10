@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createPengguna = `-- name: CreatePengguna :one
@@ -53,4 +55,111 @@ func (q *Queries) GetPengguna(ctx context.Context, email string) (GetPenggunaRow
 	var i GetPenggunaRow
 	err := row.Scan(&i.ID, &i.Password)
 	return i, err
+}
+
+const getPenggunaByID = `-- name: GetPenggunaByID :one
+SELECT id, username, email, phone, profile_picture, password, dibuat FROM pengguna WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetPenggunaByID(ctx context.Context, id int32) (Pengguna, error) {
+	row := q.db.QueryRow(ctx, getPenggunaByID, id)
+	var i Pengguna
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Phone,
+		&i.ProfilePicture,
+		&i.Password,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
+const listPengguna = `-- name: ListPengguna :many
+SELECT id, username, email, phone, profile_picture, password, dibuat FROM pengguna
+`
+
+func (q *Queries) ListPengguna(ctx context.Context) ([]Pengguna, error) {
+	rows, err := q.db.Query(ctx, listPengguna)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Pengguna
+	for rows.Next() {
+		var i Pengguna
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Phone,
+			&i.ProfilePicture,
+			&i.Password,
+			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateBiodataPengguna = `-- name: UpdateBiodataPengguna :one
+UPDATE pengguna 
+SET email = $2, phone = $3, profile_picture = $4 
+WHERE id = $1
+RETURNING id, username, email, phone, profile_picture, dibuat
+`
+
+type UpdateBiodataPenggunaParams struct {
+	ID             int32       `json:"id"`
+	Email          string      `json:"email"`
+	Phone          pgtype.Text `json:"phone"`
+	ProfilePicture pgtype.Text `json:"profile_picture"`
+}
+
+type UpdateBiodataPenggunaRow struct {
+	ID             int32            `json:"id"`
+	Username       string           `json:"username"`
+	Email          string           `json:"email"`
+	Phone          pgtype.Text      `json:"phone"`
+	ProfilePicture pgtype.Text      `json:"profile_picture"`
+	Dibuat         pgtype.Timestamp `json:"dibuat"`
+}
+
+func (q *Queries) UpdateBiodataPengguna(ctx context.Context, arg UpdateBiodataPenggunaParams) (UpdateBiodataPenggunaRow, error) {
+	row := q.db.QueryRow(ctx, updateBiodataPengguna,
+		arg.ID,
+		arg.Email,
+		arg.Phone,
+		arg.ProfilePicture,
+	)
+	var i UpdateBiodataPenggunaRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Phone,
+		&i.ProfilePicture,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
+const updatePassword = `-- name: UpdatePassword :exec
+UPDATE pengguna SET password = $2 WHERE id = $1
+`
+
+type UpdatePasswordParams struct {
+	ID       int32  `json:"id"`
+	Password string `json:"password"`
+}
+
+func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error {
+	_, err := q.db.Exec(ctx, updatePassword, arg.ID, arg.Password)
+	return err
 }
