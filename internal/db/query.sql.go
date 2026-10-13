@@ -233,6 +233,51 @@ func (q *Queries) UpdatePhonePengguna(ctx context.Context, arg UpdatePhonePenggu
 	return i, err
 }
 
+const updatePostingan = `-- name: UpdatePostingan :one
+UPDATE postingan
+SET 
+    judul = COALESCE($4, judul),
+    deskripsi = COALESCE($5, deskripsi),
+    lampiran = COALESCE($6, lampiran),
+    tipe = COALESCE($7, tipe)
+WHERE id = $1 AND kelas_id = $2 AND pengguna_id = $3
+RETURNING id, judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id, dibuat
+`
+
+type UpdatePostinganParams struct {
+	ID         int32        `json:"id"`
+	KelasID    int32        `json:"kelas_id"`
+	PenggunaID int32        `json:"pengguna_id"`
+	Judul      pgtype.Text  `json:"judul"`
+	Deskripsi  pgtype.Text  `json:"deskripsi"`
+	Lampiran   []string     `json:"lampiran"`
+	Tipe       NullTipePost `json:"tipe"`
+}
+
+func (q *Queries) UpdatePostingan(ctx context.Context, arg UpdatePostinganParams) (Postingan, error) {
+	row := q.db.QueryRow(ctx, updatePostingan,
+		arg.ID,
+		arg.KelasID,
+		arg.PenggunaID,
+		arg.Judul,
+		arg.Deskripsi,
+		arg.Lampiran,
+		arg.Tipe,
+	)
+	var i Postingan
+	err := row.Scan(
+		&i.ID,
+		&i.Judul,
+		&i.Deskripsi,
+		&i.Lampiran,
+		&i.Tipe,
+		&i.PenggunaID,
+		&i.KelasID,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
 const updateProfilePicturePengguna = `-- name: UpdateProfilePicturePengguna :one
 UPDATE pengguna SET profile_picture = $2 WHERE id = $1 RETURNING id, username, email, phone, profile_picture, password, dibuat
 `

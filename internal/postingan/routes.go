@@ -7,6 +7,7 @@ func (h *Handler) Routes(e *echo.Group) {
 
 	postingan.GET("", h.ListPostingan)
 	postingan.POST("", h.CreatePostingan)
+	postingan.PATCH("/postingan/:postinganID", h.EditPostingan)
 }
 
 

@@ -71,3 +71,46 @@ func (h *Handler) ListPostingan(c *echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, tugas)
 }
+func (h *Handler) EditPostingan(c *echo.Context) error {
+	req := new(EditPostinganRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	// Konversi field opsional untuk update sebagian (PATCH) menggunakan sqlc.narg
+	var judulParam, deskripsiParam pgtype.Text
+	if req.Judul != "" {
+		judulParam = pgtype.Text{String: req.Judul, Valid: true}
+	}
+	if req.Deskripsi != "" {
+		deskripsiParam = pgtype.Text{String: req.Deskripsi, Valid: true}
+	}
+
+	var tipeParam db.NullTipePost
+	if req.Tipe != "" {
+		tipeParam = db.NullTipePost{TipePost: req.Tipe, Valid: true}
+	}
+
+	// Panggil fungsi UpdatePostingan dari sqlc (pastikan sqlc generate sudah dijalankan sebelumnya)
+	updatedPost, err := h.db.UpdatePostingan(c.Request().Context(), db.UpdatePostinganParams{
+		ID:         req.PostinganID,
+		KelasID:    req.KelasID,
+		PenggunaID: int32(claims.UserID),
+		Judul:      judulParam,
+		Deskripsi:  deskripsiParam,
+		Tipe:       tipeParam,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui postingan")
+	}
+
+	return c.JSON(http.StatusOK, updatedPost)
+}
