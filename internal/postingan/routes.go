@@ -6,6 +6,7 @@ func (h *Handler) Routes(e *echo.Group) {
 	postingan := e.Group("/kelas/:kelasID")
 
 	postingan.GET("", h.ListPostingan)
+	postingan.POST("", h.CreatePostingan)
 }
 
 

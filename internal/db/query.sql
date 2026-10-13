@@ -27,3 +27,7 @@ UPDATE pengguna SET profile_picture = $2 WHERE id = $1 RETURNING *;
 -- name: ListPostingan :many
 SELECT * FROM postingan WHERE tipe = $1 AND pengguna_id = $2 AND kelas_id = $3;
 
+-- name: CreatePostingan :one
+INSERT INTO postingan (judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id, dibuat;

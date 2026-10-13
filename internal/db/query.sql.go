@@ -30,6 +30,44 @@ func (q *Queries) CreatePengguna(ctx context.Context, arg CreatePenggunaParams) 
 	return id, err
 }
 
+const createPostingan = `-- name: CreatePostingan :one
+INSERT INTO postingan (judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id, dibuat
+`
+
+type CreatePostinganParams struct {
+	Judul      string   `json:"judul"`
+	Deskripsi  string   `json:"deskripsi"`
+	Lampiran   []string `json:"lampiran"`
+	Tipe       TipePost `json:"tipe"`
+	PenggunaID int32    `json:"pengguna_id"`
+	KelasID    int32    `json:"kelas_id"`
+}
+
+func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams) (Postingan, error) {
+	row := q.db.QueryRow(ctx, createPostingan,
+		arg.Judul,
+		arg.Deskripsi,
+		arg.Lampiran,
+		arg.Tipe,
+		arg.PenggunaID,
+		arg.KelasID,
+	)
+	var i Postingan
+	err := row.Scan(
+		&i.ID,
+		&i.Judul,
+		&i.Deskripsi,
+		&i.Lampiran,
+		&i.Tipe,
+		&i.PenggunaID,
+		&i.KelasID,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
 const getPasswordPenggunaByEmail = `-- name: GetPasswordPenggunaByEmail :one
 SELECT id, password FROM pengguna WHERE email = $1
 `
