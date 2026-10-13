@@ -25,7 +25,13 @@ UPDATE pengguna SET phone = $2 WHERE id = $1 RETURNING *;
 UPDATE pengguna SET profile_picture = $2 WHERE id = $1 RETURNING *;
 
 -- name: ListPostingan :many
-SELECT * FROM postingan WHERE tipe = $1 AND pengguna_id = $2 AND kelas_id = $3;
+SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe, p.pengguna_id, p.kelas_id, p.dibuat 
+FROM postingan p
+JOIN kelas k ON p.kelas_id = k.id
+WHERE p.tipe = $1 
+  AND p.pengguna_id = $2 
+  AND p.kelas_id = $3 
+  AND k.mata_pelajaran = $4;
 
 -- name: CreatePostingan :one
 INSERT INTO postingan (judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id)

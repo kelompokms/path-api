@@ -5,11 +5,13 @@ import (
 	"path-api/internal/db"
 	"path-api/internal/utils"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 )
+
 func (h *Handler) CreatePostingan(c *echo.Context) error {
 	req := new(CreatePostinganRequest)
-	
+
 	// Proses binding request body (JSON) dan parameter URL (kelasID)
 	if err := c.Bind(req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -52,15 +54,20 @@ func (h *Handler) ListPostingan(c *echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
+	// Konversi string req.Mapel menjadi pgtype.Text yang diminta oleh sqlc
+	mapelParam := pgtype.Text{
+		String: req.Mapel,
+		Valid:  req.Mapel != "",
+	}
+
 	tugas, err := h.db.ListPostingan(c.Request().Context(), db.ListPostinganParams{
-		PenggunaID: int32(claims.UserID),
-		KelasID:    req.KelasID,
-		Tipe:       req.Tipe,
+		Tipe:          req.Tipe,
+		PenggunaID:    int32(claims.UserID),
+		KelasID:       req.KelasID,
+		MataPelajaran: mapelParam,
 	})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data "+string(req.Tipe))
 	}
 	return c.JSON(http.StatusOK, tugas)
 }
-
-

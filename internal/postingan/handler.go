@@ -21,4 +21,5 @@ type CreatePostinganRequest struct {
 type ListPostinganRequest struct {
 	Tipe    db.TipePost `query:"tipe" validate:"required,oneof=tugas materi"`
 	KelasID int32       `param:"kelasID" validate:"required"`
+	Mapel   string      `query:"mapel"` 
 }

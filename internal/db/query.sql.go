@@ -121,17 +121,29 @@ func (q *Queries) GetPengguna(ctx context.Context, id int32) (GetPenggunaRow, er
 }
 
 const listPostingan = `-- name: ListPostingan :many
-SELECT id, judul, deskripsi, lampiran, tipe, pengguna_id, kelas_id, dibuat FROM postingan WHERE tipe = $1 AND pengguna_id = $2 AND kelas_id = $3
+SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe, p.pengguna_id, p.kelas_id, p.dibuat 
+FROM postingan p
+JOIN kelas k ON p.kelas_id = k.id
+WHERE p.tipe = $1 
+  AND p.pengguna_id = $2 
+  AND p.kelas_id = $3 
+  AND k.mata_pelajaran = $4
 `
 
 type ListPostinganParams struct {
-	Tipe       TipePost `json:"tipe"`
-	PenggunaID int32    `json:"pengguna_id"`
-	KelasID    int32    `json:"kelas_id"`
+	Tipe          TipePost    `json:"tipe"`
+	PenggunaID    int32       `json:"pengguna_id"`
+	KelasID       int32       `json:"kelas_id"`
+	MataPelajaran pgtype.Text `json:"mata_pelajaran"`
 }
 
 func (q *Queries) ListPostingan(ctx context.Context, arg ListPostinganParams) ([]Postingan, error) {
-	rows, err := q.db.Query(ctx, listPostingan, arg.Tipe, arg.PenggunaID, arg.KelasID)
+	rows, err := q.db.Query(ctx, listPostingan,
+		arg.Tipe,
+		arg.PenggunaID,
+		arg.KelasID,
+		arg.MataPelajaran,
+	)
 	if err != nil {
 		return nil, err
 	}
