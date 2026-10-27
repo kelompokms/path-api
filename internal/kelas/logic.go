@@ -26,7 +26,7 @@ func (h *Handler) List(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	kelas, err := h.db.ListKelas(c.Request().Context(), int32(claims.UserID))
+	kelas, err := h.db.ListKelas(c.Request().Context(), claims.UserID)
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "tidak ada kelas")
@@ -76,7 +76,7 @@ func (h *Handler) Create(c *echo.Context) error {
 	err = h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
 		Nama:      req.Nama,
 		Tingkat:   tingkatParam,
-		Pembuat:   int32(claims.UserID),
+		Pembuat:   claims.UserID,
 		KodeKelas: kodeKelas,
 	})
 
@@ -124,7 +124,7 @@ func (h *Handler) Join(c *echo.Context) error {
 	}
 
 	exists, err := h.db.CheckAnggotaKelas(c.Request().Context(), db.CheckAnggotaKelasParams{
-		PenggunaID: int32(claims.UserID),
+		PenggunaID: claims.UserID,
 		KelasID:    kelasID,
 	})
 	if exists != 0 {
@@ -132,7 +132,7 @@ func (h *Handler) Join(c *echo.Context) error {
 	}
 
 	err = h.db.JoinKelas(c.Request().Context(), db.JoinKelasParams{
-		PenggunaID: int32(claims.UserID),
+		PenggunaID: claims.UserID,
 		KelasID:    kelasID,
 	})
 	if err != nil {
@@ -178,7 +178,7 @@ func (h *Handler) Leave(c *echo.Context) error {
 
 	err = h.db.LeaveKelas(c.Request().Context(), db.LeaveKelasParams{
 		KelasID:    kelasID,
-		PenggunaID: int32(claims.UserID),
+		PenggunaID: claims.UserID,
 	})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal keluar dari kelas")

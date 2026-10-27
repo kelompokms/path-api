@@ -41,7 +41,7 @@ func (h *Handler) CreatePostingan(c *echo.Context) error {
 		Deskripsi:  deskripsiParam,
 		Lampiran:   req.Lampiran,
 		Tipe:       req.Tipe,
-		PenggunaID: int32(claims.UserID),
+		PenggunaID: claims.UserID,
 		KelasID:    req.KelasID,
 	})
 	if err != nil {
@@ -71,7 +71,7 @@ func (h *Handler) ListPostingan(c *echo.Context) error {
 
 	tugas, err := h.db.ListPostingan(c.Request().Context(), db.ListPostinganParams{
 		Tipe:          req.Tipe,
-		PenggunaID:    int32(claims.UserID),
+		PenggunaID:    claims.UserID,
 		KelasID:       req.KelasID,
 		MataPelajaran: mapelParam,
 	})

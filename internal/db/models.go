@@ -103,6 +103,14 @@ type AnggotaKela struct {
 	Dibuat     pgtype.Timestamp `json:"dibuat"`
 }
 
+type File struct {
+	ID      int32       `json:"id"`
+	Nama    string      `json:"nama"`
+	Path    string      `json:"path"`
+	Ukuran  int32       `json:"ukuran"`
+	Tanggal pgtype.Date `json:"tanggal"`
+}
+
 type Kela struct {
 	ID        int32            `json:"id"`
 	Nama      string           `json:"nama"`

@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"path-api/internal/db"
+	"path-api/internal/files"
 	"path-api/internal/utils"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -28,7 +29,7 @@ func (h *Handler) Get(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	pengguna, err := h.db.GetPengguna(c.Request().Context(), int32(claims.UserID))
+	pengguna, err := h.db.GetPengguna(c.Request().Context(), claims.UserID)
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusNotFound, "Data pengguna tidak ditemukan")
@@ -58,7 +59,7 @@ func (h *Handler) UpdateEmail(c *echo.Context) error {
 	}
 
 	updatedUser, err := h.db.UpdateEmailPengguna(c.Request().Context(), db.UpdateEmailPenggunaParams{
-		ID:    int32(claims.UserID),
+		ID:    claims.UserID,
 		Email: req.Email,
 	})
 	if err != nil {
@@ -89,7 +90,7 @@ func (h *Handler) UpdatePhone(c *echo.Context) error {
 	phonePg := pgtype.Text{String: req.Phone, Valid: true}
 
 	updatedUser, err := h.db.UpdatePhonePengguna(c.Request().Context(), db.UpdatePhonePenggunaParams{
-		ID:    int32(claims.UserID),
+		ID:    claims.UserID,
 		Phone: phonePg,
 	})
 	if err != nil {
@@ -117,15 +118,15 @@ func (h *Handler) UpdateProfilePicture(c *echo.Context) error {
 		return utils.ValidationErrorHandler(c, err)
 	}
 
-	filePath, err := utils.WriteFile(utils.TipeUploadProfilePicture, req.ProfilePicture)
+	path, err := files.SaveProfilePicture(claims.UserID, req.ProfilePicture)
 	if err != nil {
 		log.Println(err)
-		return echo.NewHTTPError(http.StatusBadRequest, "gagal mengupload file")
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui foto profil")
 	}
 
-	updatedUser, err := h.db.UpdateProfilePicturePengguna(c.Request().Context(), db.UpdateProfilePicturePenggunaParams{
-		ID:             int32(claims.UserID),
-		ProfilePicture: pgtype.Text{String: filePath, Valid: true},
+	updatedPengguna, err := h.db.UpdateProfilePicturePengguna(c.Request().Context(), db.UpdateProfilePicturePenggunaParams{
+		ID:             claims.UserID,
+		ProfilePicture: pgtype.Text{String: path, Valid: true},
 	})
 	if err != nil {
 		log.Println(err)
@@ -134,7 +135,7 @@ func (h *Handler) UpdateProfilePicture(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message": "Foto profil berhasil diperbarui",
-		"data":    updatedUser,
+		"data":    updatedPengguna,
 	})
 }
 
@@ -152,7 +153,7 @@ func (h *Handler) ResetPassword(c *echo.Context) error {
 		return utils.ValidationErrorHandler(c, err)
 	}
 
-	password, err := h.db.GetPasswordPenggunaByID(c.Request().Context(), int32(claims.UserID))
+	password, err := h.db.GetPasswordPenggunaByID(c.Request().Context(), claims.UserID)
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusNotFound, "Pengguna tidak ditemukan")
@@ -171,7 +172,7 @@ func (h *Handler) ResetPassword(c *echo.Context) error {
 	}
 
 	err = h.db.UpdatePasswordPengguna(c.Request().Context(), db.UpdatePasswordPenggunaParams{
-		ID:       int32(claims.UserID),
+		ID:       claims.UserID,
 		Password: string(hashedPassword),
 	})
 

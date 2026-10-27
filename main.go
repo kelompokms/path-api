@@ -6,6 +6,7 @@ import (
 	_ "path-api/docs"
 	"path-api/internal/auth"
 	"path-api/internal/db"
+	"path-api/internal/files"
 	"path-api/internal/kelas"
 	"path-api/internal/pengguna"
 	"path-api/internal/postingan"
@@ -62,6 +63,9 @@ func main() {
 
 	postinganHandler := postingan.New(q)
 	postinganHandler.Routes(protected)
+
+	filesHandler := files.New(q)
+	filesHandler.Routes(protected)
 
 	port := utils.GetPort()
 	err = e.Start(port)

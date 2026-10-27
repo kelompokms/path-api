@@ -10,7 +10,7 @@ import (
 )
 
 type JWTCustomClaims struct {
-	UserID int `json:"user_id"`
+	UserID int32 `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
@@ -24,7 +24,7 @@ var JWTConfig echojwt.Config = echojwt.Config{
 	SigningKey: []byte(GetSecret()),
 }
 
-func NewToken(UserID int) (string, error) {
+func NewToken(UserID int32) (string, error) {
 	claims := &JWTCustomClaims{
 		UserID: UserID,
 		RegisteredClaims: jwt.RegisteredClaims{
