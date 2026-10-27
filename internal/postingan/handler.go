@@ -20,10 +20,11 @@ type CreatePostinganRequest struct {
 	Lampiran  []string    `json:"lampiran"`
 	Tipe      db.TipePost `json:"tipe" validate:"required,oneof=tugas materi"`
 }
+
 type ListPostinganRequest struct {
-	Tipe    db.TipePost `query:"tipe" validate:"required,oneof=tugas materi"`
-	KelasID int32       `param:"kelasID" validate:"required"`
-	Mapel   string      `query:"mapel"`
+	Tipe      db.TipePost `query:"tipe" validate:"required,oneof=tugas materi"`
+	KodeKelas string      `param:"kode_kelas" validate:"required"`
+	Mapel     string      `query:"mapel"`
 }
 type EditPostinganRequest struct {
 	KelasID     int32                   `param:"kelasID" validate:"required"`

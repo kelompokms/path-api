@@ -3,9 +3,9 @@ package postingan
 import "github.com/labstack/echo/v5"
 
 func (h *Handler) Routes(e *echo.Group) {
-	postingan := e.Group("/kelas/:kelasID")
+	postingan := e.Group("/kelas/:kode_kelas")
 
-	postingan.GET("", h.ListPostingan)
-	postingan.POST("", h.CreatePostingan)
-	postingan.PATCH("/postingan/:postinganID", h.EditPostingan)
+	postingan.GET("/posts", h.List)
+	postingan.POST("/posts", h.Create)
+	postingan.PATCH("/postingan/:postinganID", h.Edit)
 }

@@ -28,10 +28,10 @@ func (q *Queries) CheckAnggotaKelas(ctx context.Context, arg CheckAnggotaKelasPa
 	return column_1, err
 }
 
-const createKelas = `-- name: CreateKelas :exec
+const createKelas = `-- name: CreateKelas :one
 INSERT INTO kelas (nama, tingkat, pembuat, kode_kelas)
 VALUES ($1, $2, $3, $4)
-RETURNING id
+RETURNING id, nama, tingkat, pembuat, kode_kelas, dibuat
 `
 
 type CreateKelasParams struct {
@@ -41,14 +41,23 @@ type CreateKelasParams struct {
 	KodeKelas string      `json:"kode_kelas"`
 }
 
-func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) error {
-	_, err := q.db.Exec(ctx, createKelas,
+func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) (Kela, error) {
+	row := q.db.QueryRow(ctx, createKelas,
 		arg.Nama,
 		arg.Tingkat,
 		arg.Pembuat,
 		arg.KodeKelas,
 	)
-	return err
+	var i Kela
+	err := row.Scan(
+		&i.ID,
+		&i.Nama,
+		&i.Tingkat,
+		&i.Pembuat,
+		&i.KodeKelas,
+		&i.Dibuat,
+	)
+	return i, err
 }
 
 const getKelas = `-- name: GetKelas :one
@@ -69,12 +78,12 @@ func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) 
 	return i, err
 }
 
-const getKelasIDByKodeKelas = `-- name: GetKelasIDByKodeKelas :one
+const getKelasID = `-- name: GetKelasID :one
 SELECT id FROM kelas WHERE kode_kelas = $1
 `
 
-func (q *Queries) GetKelasIDByKodeKelas(ctx context.Context, kodeKelas string) (int32, error) {
-	row := q.db.QueryRow(ctx, getKelasIDByKodeKelas, kodeKelas)
+func (q *Queries) GetKelasID(ctx context.Context, kodeKelas string) (int32, error) {
+	row := q.db.QueryRow(ctx, getKelasID, kodeKelas)
 	var id int32
 	err := row.Scan(&id)
 	return id, err

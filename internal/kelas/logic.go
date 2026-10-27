@@ -35,6 +35,26 @@ func (h *Handler) List(c *echo.Context) error {
 	return c.JSON(http.StatusOK, kelas)
 }
 
+func (h *Handler) Get(c *echo.Context) error {
+	var req KodeKelasRequest
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := c.Validate(&req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	kelas, err := h.db.GetKelas(c.Request().Context(), req.KodeKelas)
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Kelas tidak ditemukan")
+	}
+
+	return c.JSON(http.StatusOK, kelas)
+}
+
 // Create godoc
 //
 //	@Summary		Buat Kelas
@@ -73,7 +93,7 @@ func (h *Handler) Create(c *echo.Context) error {
 
 	kodeKelas := utils.GenerateHashCode()
 
-	err = h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
+	kelas, err := h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
 		Nama:      req.Nama,
 		Tingkat:   tingkatParam,
 		Pembuat:   claims.UserID,
@@ -85,9 +105,7 @@ func (h *Handler) Create(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat kelas")
 	}
 
-	return c.JSON(http.StatusCreated, map[string]string{
-		"message": "Kelas berhasil dibuat",
-	})
+	return c.JSON(http.StatusCreated, kelas)
 }
 
 // Join godoc
@@ -97,12 +115,12 @@ func (h *Handler) Create(c *echo.Context) error {
 //	@Tags			Kelas
 //	@Accept			json
 //	@Produce		json
-//	@Param			request		path		JoinDanKeluarKelasRequest	true	"Create Kelas Request Payload"
+//	@Param			request		path		KodeKelasRequest	true	"Create Kelas Request Payload"
 //	@Success		200			{object}	utils.HTTPResponse
 //	@Failure		400,401,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/gabung [post]
 func (h *Handler) Join(c *echo.Context) error {
-	var req JoinDanKeluarKelasRequest
+	var req KodeKelasRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -117,7 +135,7 @@ func (h *Handler) Join(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	kelasID, err := h.db.GetKelasIDByKodeKelas(c.Request().Context(), req.KodeKelas)
+	kelasID, err := h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "kelas tidak ditemukan")
@@ -152,12 +170,12 @@ func (h *Handler) Join(c *echo.Context) error {
 //	@Tags			Kelas
 //	@Accept			json
 //	@Produce		json
-//	@Param			request		path		JoinDanKeluarKelasRequest	true	"Leave Kelas Request Payload"
+//	@Param			request		path		KodeKelasRequest	true	"Leave Kelas Request Payload"
 //	@Success		200			{object}	utils.HTTPResponse
 //	@Failure		400,401,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/keluar [post]
 func (h *Handler) Leave(c *echo.Context) error {
-	var req JoinDanKeluarKelasRequest
+	var req KodeKelasRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -171,7 +189,7 @@ func (h *Handler) Leave(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	kelasID, err := h.db.GetKelasIDByKodeKelas(c.Request().Context(), req.KodeKelas)
+	kelasID, err := h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "kelas tidak ditemukan")
 	}

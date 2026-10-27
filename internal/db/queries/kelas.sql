@@ -1,7 +1,7 @@
--- name: CreateKelas :exec
+-- name: CreateKelas :one
 INSERT INTO kelas (nama, tingkat, pembuat, kode_kelas)
 VALUES ($1, $2, $3, $4)
-RETURNING id;
+RETURNING *;
 
 -- name: ListKelas :many
 SELECT kelas.* FROM anggota_kelas
@@ -15,7 +15,7 @@ SELECT * FROM kelas WHERE kode_kelas = $1;
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, role)
 VALUES ($1, $2, $3);
 
--- name: GetKelasIDByKodeKelas :one
+-- name: GetKelasID :one
 SELECT id FROM kelas WHERE kode_kelas = $1;
 
 -- name: UpdateRoleKelas :exec

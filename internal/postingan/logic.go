@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-func (h *Handler) CreatePostingan(c *echo.Context) error {
+func (h *Handler) Create(c *echo.Context) error {
 	req := new(CreatePostinganRequest)
 
 	// Proses binding request body (JSON) dan parameter URL (kelasID)
@@ -25,6 +25,7 @@ func (h *Handler) CreatePostingan(c *echo.Context) error {
 	// Ambil ID pengguna dari token JWT (menggunakan utilitas yang sama seperti ListPostingan)
 	claims, err := utils.GetClaims(c)
 	if err != nil {
+		log.Println(err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
@@ -51,18 +52,23 @@ func (h *Handler) CreatePostingan(c *echo.Context) error {
 
 	return c.JSON(http.StatusCreated, post)
 }
-func (h *Handler) ListPostingan(c *echo.Context) error {
-	req := new(ListPostinganRequest)
-	if err := c.Bind(req); err != nil {
+func (h *Handler) List(c *echo.Context) error {
+	var req ListPostinganRequest
+
+	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if err := c.Validate(req); err != nil {
+	if err := c.Validate(&req); err != nil {
 		return utils.ValidationErrorHandler(c, err)
 	}
+
 	claims, err := utils.GetClaims(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
+
+	kelasID, err := h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
+
 	// Konversi string req.Mapel menjadi pgtype.Text yang diminta oleh sqlc
 	mapelParam := pgtype.Text{
 		String: req.Mapel,
@@ -72,7 +78,7 @@ func (h *Handler) ListPostingan(c *echo.Context) error {
 	tugas, err := h.db.ListPostingan(c.Request().Context(), db.ListPostinganParams{
 		Tipe:          req.Tipe,
 		PenggunaID:    claims.UserID,
-		KelasID:       req.KelasID,
+		KelasID:       kelasID,
 		MataPelajaran: mapelParam,
 	})
 	if err != nil {
@@ -80,7 +86,7 @@ func (h *Handler) ListPostingan(c *echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, tugas)
 }
-func (h *Handler) EditPostingan(c *echo.Context) error {
+func (h *Handler) Edit(c *echo.Context) error {
 	req := new(EditPostinganRequest)
 
 	if err := c.Bind(req); err != nil {

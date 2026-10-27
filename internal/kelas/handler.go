@@ -27,7 +27,7 @@ type ListKelasResponse struct {
 	Dibuat    time.Time `json:"dibuat" example:"2006-01-02T15:04:05Z07:00"`
 }
 
-type JoinDanKeluarKelasRequest struct {
+type KodeKelasRequest struct {
 	KodeKelas string `json:"kode_kelas" param:"kode_kelas" validate:"required"`
 }
 

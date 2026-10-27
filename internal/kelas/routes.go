@@ -7,6 +7,7 @@ func (h *Handler) Routes(e *echo.Group) {
 
 	kelas.GET("", h.List)
 	kelas.POST("", h.Create)
+	kelas.GET("/:kode_kelas", h.Get)
 	kelas.POST("/:kode_kelas/gabung", h.Join)
 	kelas.POST("/:kode_kelas/keluar", h.Leave)
 }
