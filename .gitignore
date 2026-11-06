@@ -6,6 +6,8 @@ uploads/
 # Binaries for programs and plugins
 path-api
 path-api-bin
+./pather
+./pather-bin
 main
 *.exe
 *.exe~
