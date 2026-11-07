@@ -21,7 +21,7 @@ type CreatePostinganRequest struct {
 }
 
 type ListPostinganRequest struct {
-	TipeID    int32  `query:"tipe" validate:"required,,gte=1,lte=2"`
+	TipeID    int32  `query:"tipe" validate:"required,gte=1,lte=2"`
 	KodeKelas string `param:"kode_kelas" validate:"required"`
 	Mapel     string `query:"mapel"`
 }

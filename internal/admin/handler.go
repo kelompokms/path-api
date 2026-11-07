@@ -11,6 +11,6 @@ func New(db *db.Queries) *Handler {
 }
 
 type UpdateGuruRequest struct {
-	KodeKelas string `param:"kode_kelas" validate:"required"`
+	KodeKelas string `json:"kode_kelas" param:"kode_kelas" validate:"required"`
 	RoleGuru  bool   `json:"role_guru" validate:"required"`
 }
