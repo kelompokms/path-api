@@ -12,31 +12,37 @@ import (
 )
 
 const createPengguna = `-- name: CreatePengguna :one
-INSERT INTO pengguna (username, email, password)
-VALUES ($1, $2, $3)
+INSERT INTO pengguna (nama, email, password, admin)
+VALUES ($1, $2, $3, $4)
 RETURNING id
 `
 
 type CreatePenggunaParams struct {
-	Username string `json:"username"`
+	Nama     string `json:"nama"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Admin    bool   `json:"admin"`
 }
 
 func (q *Queries) CreatePengguna(ctx context.Context, arg CreatePenggunaParams) (int32, error) {
-	row := q.db.QueryRow(ctx, createPengguna, arg.Username, arg.Email, arg.Password)
+	row := q.db.QueryRow(ctx, createPengguna,
+		arg.Nama,
+		arg.Email,
+		arg.Password,
+		arg.Admin,
+	)
 	var id int32
 	err := row.Scan(&id)
 	return id, err
 }
 
 const getPengguna = `-- name: GetPengguna :one
-SELECT id, username, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1
+SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1
 `
 
 type GetPenggunaRow struct {
 	ID             int32       `json:"id"`
-	Username       string      `json:"username"`
+	Nama           string      `json:"nama"`
 	Email          string      `json:"email"`
 	Phone          pgtype.Text `json:"phone"`
 	ProfilePicture pgtype.Text `json:"profile_picture"`
@@ -47,7 +53,7 @@ func (q *Queries) GetPengguna(ctx context.Context, id int32) (GetPenggunaRow, er
 	var i GetPenggunaRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
+		&i.Nama,
 		&i.Email,
 		&i.Phone,
 		&i.ProfilePicture,
@@ -55,8 +61,96 @@ func (q *Queries) GetPengguna(ctx context.Context, id int32) (GetPenggunaRow, er
 	return i, err
 }
 
+const isGuru = `-- name: IsGuru :one
+SELECT TRUE FROM anggota_kelas WHERE id = $1 AND guru = TRUE
+`
+
+func (q *Queries) IsGuru(ctx context.Context, id int32) (bool, error) {
+	row := q.db.QueryRow(ctx, isGuru, id)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const listAdmin = `-- name: ListAdmin :many
+SELECT id, nama, email, phone, profile_picture, password, admin, dibuat FROM pengguna WHERE admin = TRUE
+`
+
+func (q *Queries) ListAdmin(ctx context.Context) ([]Pengguna, error) {
+	rows, err := q.db.Query(ctx, listAdmin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Pengguna
+	for rows.Next() {
+		var i Pengguna
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nama,
+			&i.Email,
+			&i.Phone,
+			&i.ProfilePicture,
+			&i.Password,
+			&i.Admin,
+			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGuru = `-- name: ListGuru :many
+SELECT
+    kelas_id,
+    kelas.nama as nama_kelas,
+    pengguna_id,
+    pengguna.nama as nama_pengguna
+FROM anggota_kelas
+JOIN pengguna ON pengguna_id = pengguna.id
+JOIN kelas ON kelas_id = kelas.id
+WHERE guru = TRUE
+`
+
+type ListGuruRow struct {
+	KelasID      int32  `json:"kelas_id"`
+	NamaKelas    string `json:"nama_kelas"`
+	PenggunaID   int32  `json:"pengguna_id"`
+	NamaPengguna string `json:"nama_pengguna"`
+}
+
+func (q *Queries) ListGuru(ctx context.Context) ([]ListGuruRow, error) {
+	rows, err := q.db.Query(ctx, listGuru)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGuruRow
+	for rows.Next() {
+		var i ListGuruRow
+		if err := rows.Scan(
+			&i.KelasID,
+			&i.NamaKelas,
+			&i.PenggunaID,
+			&i.NamaPengguna,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateEmailPengguna = `-- name: UpdateEmailPengguna :one
-UPDATE pengguna SET email = $2 WHERE id = $1 RETURNING id, username, email, phone, profile_picture
+UPDATE pengguna SET email = $2 WHERE id = $1 RETURNING id, nama, email, phone, profile_picture
 `
 
 type UpdateEmailPenggunaParams struct {
@@ -66,7 +160,7 @@ type UpdateEmailPenggunaParams struct {
 
 type UpdateEmailPenggunaRow struct {
 	ID             int32       `json:"id"`
-	Username       string      `json:"username"`
+	Nama           string      `json:"nama"`
 	Email          string      `json:"email"`
 	Phone          pgtype.Text `json:"phone"`
 	ProfilePicture pgtype.Text `json:"profile_picture"`
@@ -77,7 +171,7 @@ func (q *Queries) UpdateEmailPengguna(ctx context.Context, arg UpdateEmailPenggu
 	var i UpdateEmailPenggunaRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
+		&i.Nama,
 		&i.Email,
 		&i.Phone,
 		&i.ProfilePicture,
@@ -99,8 +193,33 @@ func (q *Queries) UpdatePasswordPengguna(ctx context.Context, arg UpdatePassword
 	return err
 }
 
+const updatePengguna = `-- name: UpdatePengguna :one
+SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1
+`
+
+type UpdatePenggunaRow struct {
+	ID             int32       `json:"id"`
+	Nama           string      `json:"nama"`
+	Email          string      `json:"email"`
+	Phone          pgtype.Text `json:"phone"`
+	ProfilePicture pgtype.Text `json:"profile_picture"`
+}
+
+func (q *Queries) UpdatePengguna(ctx context.Context, id int32) (UpdatePenggunaRow, error) {
+	row := q.db.QueryRow(ctx, updatePengguna, id)
+	var i UpdatePenggunaRow
+	err := row.Scan(
+		&i.ID,
+		&i.Nama,
+		&i.Email,
+		&i.Phone,
+		&i.ProfilePicture,
+	)
+	return i, err
+}
+
 const updatePhonePengguna = `-- name: UpdatePhonePengguna :one
-UPDATE pengguna SET phone = $2 WHERE id = $1 RETURNING id, username, email, phone, profile_picture
+UPDATE pengguna SET phone = $2 WHERE id = $1 RETURNING id, nama, email, phone, profile_picture
 `
 
 type UpdatePhonePenggunaParams struct {
@@ -110,7 +229,7 @@ type UpdatePhonePenggunaParams struct {
 
 type UpdatePhonePenggunaRow struct {
 	ID             int32       `json:"id"`
-	Username       string      `json:"username"`
+	Nama           string      `json:"nama"`
 	Email          string      `json:"email"`
 	Phone          pgtype.Text `json:"phone"`
 	ProfilePicture pgtype.Text `json:"profile_picture"`
@@ -121,7 +240,7 @@ func (q *Queries) UpdatePhonePengguna(ctx context.Context, arg UpdatePhonePenggu
 	var i UpdatePhonePenggunaRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
+		&i.Nama,
 		&i.Email,
 		&i.Phone,
 		&i.ProfilePicture,
@@ -130,7 +249,7 @@ func (q *Queries) UpdatePhonePengguna(ctx context.Context, arg UpdatePhonePenggu
 }
 
 const updateProfilePicturePengguna = `-- name: UpdateProfilePicturePengguna :one
-UPDATE pengguna SET profile_picture = $2 WHERE id = $1 RETURNING id, username, email, phone, profile_picture
+UPDATE pengguna SET profile_picture = $2 WHERE id = $1 RETURNING id, nama, email, phone, profile_picture
 `
 
 type UpdateProfilePicturePenggunaParams struct {
@@ -140,7 +259,7 @@ type UpdateProfilePicturePenggunaParams struct {
 
 type UpdateProfilePicturePenggunaRow struct {
 	ID             int32       `json:"id"`
-	Username       string      `json:"username"`
+	Nama           string      `json:"nama"`
 	Email          string      `json:"email"`
 	Phone          pgtype.Text `json:"phone"`
 	ProfilePicture pgtype.Text `json:"profile_picture"`
@@ -151,10 +270,24 @@ func (q *Queries) UpdateProfilePicturePengguna(ctx context.Context, arg UpdatePr
 	var i UpdateProfilePicturePenggunaRow
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
+		&i.Nama,
 		&i.Email,
 		&i.Phone,
 		&i.ProfilePicture,
 	)
 	return i, err
+}
+
+const updateRolePengguna = `-- name: UpdateRolePengguna :exec
+UPDATE pengguna SET admin = $2 WHERE id = $1
+`
+
+type UpdateRolePenggunaParams struct {
+	ID    int32 `json:"id"`
+	Admin bool  `json:"admin"`
+}
+
+func (q *Queries) UpdateRolePengguna(ctx context.Context, arg UpdateRolePenggunaParams) error {
+	_, err := q.db.Exec(ctx, updateRolePengguna, arg.ID, arg.Admin)
+	return err
 }

@@ -13,31 +13,31 @@ import (
 
 const checkAnggotaKelas = `-- name: CheckAnggotaKelas :one
 SELECT 1 FROM anggota_kelas
-WHERE pengguna_id = $1 AND kelas_id = $2
+WHERE pengguna_id = $1 AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1)
 `
 
 type CheckAnggotaKelasParams struct {
-	PenggunaID int32 `json:"pengguna_id"`
-	KelasID    int32 `json:"kelas_id"`
+	PenggunaID int32  `json:"pengguna_id"`
+	KodeKelas  string `json:"kode_kelas"`
 }
 
 func (q *Queries) CheckAnggotaKelas(ctx context.Context, arg CheckAnggotaKelasParams) (int32, error) {
-	row := q.db.QueryRow(ctx, checkAnggotaKelas, arg.PenggunaID, arg.KelasID)
+	row := q.db.QueryRow(ctx, checkAnggotaKelas, arg.PenggunaID, arg.KodeKelas)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
 }
 
 const createKelas = `-- name: CreateKelas :one
-INSERT INTO kelas (nama, tingkat, pembuat, kode_kelas)
+INSERT INTO kelas (nama, tingkat, pengampu, kode_kelas)
 VALUES ($1, $2, $3, $4)
-RETURNING id, nama, tingkat, pembuat, kode_kelas, dibuat
+RETURNING id, nama, tingkat, kode_kelas, dibuat, pengampu
 `
 
 type CreateKelasParams struct {
 	Nama      string      `json:"nama"`
 	Tingkat   pgtype.Text `json:"tingkat"`
-	Pembuat   int32       `json:"pembuat"`
+	Pengampu  pgtype.Int4 `json:"pengampu"`
 	KodeKelas string      `json:"kode_kelas"`
 }
 
@@ -45,7 +45,7 @@ func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) (Kela,
 	row := q.db.QueryRow(ctx, createKelas,
 		arg.Nama,
 		arg.Tingkat,
-		arg.Pembuat,
+		arg.Pengampu,
 		arg.KodeKelas,
 	)
 	var i Kela
@@ -53,15 +53,15 @@ func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) (Kela,
 		&i.ID,
 		&i.Nama,
 		&i.Tingkat,
-		&i.Pembuat,
 		&i.KodeKelas,
 		&i.Dibuat,
+		&i.Pengampu,
 	)
 	return i, err
 }
 
 const getKelas = `-- name: GetKelas :one
-SELECT id, nama, tingkat, pembuat, kode_kelas, dibuat FROM kelas WHERE kode_kelas = $1
+SELECT id, nama, tingkat, kode_kelas, dibuat, pengampu FROM kelas WHERE kode_kelas = $1
 `
 
 func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) {
@@ -71,9 +71,9 @@ func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) 
 		&i.ID,
 		&i.Nama,
 		&i.Tingkat,
-		&i.Pembuat,
 		&i.KodeKelas,
 		&i.Dibuat,
+		&i.Pengampu,
 	)
 	return i, err
 }
@@ -90,56 +90,56 @@ func (q *Queries) GetKelasID(ctx context.Context, kodeKelas string) (int32, erro
 }
 
 const joinKelas = `-- name: JoinKelas :exec
-INSERT INTO anggota_kelas (pengguna_id, kelas_id, role)
+INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
 VALUES ($1, $2, $3)
 `
 
 type JoinKelasParams struct {
-	PenggunaID int32     `json:"pengguna_id"`
-	KelasID    int32     `json:"kelas_id"`
-	Role       RoleKelas `json:"role"`
+	PenggunaID int32 `json:"pengguna_id"`
+	KelasID    int32 `json:"kelas_id"`
+	Guru       bool  `json:"guru"`
 }
 
 func (q *Queries) JoinKelas(ctx context.Context, arg JoinKelasParams) error {
-	_, err := q.db.Exec(ctx, joinKelas, arg.PenggunaID, arg.KelasID, arg.Role)
+	_, err := q.db.Exec(ctx, joinKelas, arg.PenggunaID, arg.KelasID, arg.Guru)
 	return err
 }
 
 const leaveKelas = `-- name: LeaveKelas :exec
 DELETE FROM anggota_kelas
-WHERE kelas_id = $1 AND pengguna_id = $2
+WHERE pengguna_id = $1 AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1)
 `
 
 type LeaveKelasParams struct {
-	KelasID    int32 `json:"kelas_id"`
-	PenggunaID int32 `json:"pengguna_id"`
+	PenggunaID int32  `json:"pengguna_id"`
+	KodeKelas  string `json:"kode_kelas"`
 }
 
 func (q *Queries) LeaveKelas(ctx context.Context, arg LeaveKelasParams) error {
-	_, err := q.db.Exec(ctx, leaveKelas, arg.KelasID, arg.PenggunaID)
+	_, err := q.db.Exec(ctx, leaveKelas, arg.PenggunaID, arg.KodeKelas)
 	return err
 }
 
 const listAnggotaKelas = `-- name: ListAnggotaKelas :one
-SELECT id, pengguna_id, kelas_id, role, dibuat FROM anggota_kelas
-WHERE kelas_id = $1
+SELECT id, pengguna_id, kelas_id, guru, dibuat FROM anggota_kelas
+WHERE kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $1 LIMIT 1)
 `
 
-func (q *Queries) ListAnggotaKelas(ctx context.Context, kelasID int32) (AnggotaKela, error) {
-	row := q.db.QueryRow(ctx, listAnggotaKelas, kelasID)
+func (q *Queries) ListAnggotaKelas(ctx context.Context, kodeKelas string) (AnggotaKela, error) {
+	row := q.db.QueryRow(ctx, listAnggotaKelas, kodeKelas)
 	var i AnggotaKela
 	err := row.Scan(
 		&i.ID,
 		&i.PenggunaID,
 		&i.KelasID,
-		&i.Role,
+		&i.Guru,
 		&i.Dibuat,
 	)
 	return i, err
 }
 
 const listKelas = `-- name: ListKelas :many
-SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.pembuat, kelas.kode_kelas, kelas.dibuat FROM anggota_kelas
+SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM anggota_kelas
 JOIN kelas ON kelas_id = kelas.id
 WHERE pengguna_id = $1
 `
@@ -157,9 +157,9 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, erro
 			&i.ID,
 			&i.Nama,
 			&i.Tingkat,
-			&i.Pembuat,
 			&i.KodeKelas,
 			&i.Dibuat,
+			&i.Pengampu,
 		); err != nil {
 			return nil, err
 		}
@@ -173,16 +173,18 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, erro
 
 const updateRoleKelas = `-- name: UpdateRoleKelas :exec
 UPDATE anggota_kelas
-SET role = $2
-WHERE id = $1
+SET guru = $3
+WHERE pengguna_id = $1
+AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1)
 `
 
 type UpdateRoleKelasParams struct {
-	ID   int32     `json:"id"`
-	Role RoleKelas `json:"role"`
+	PenggunaID int32  `json:"pengguna_id"`
+	KodeKelas  string `json:"kode_kelas"`
+	Guru       bool   `json:"guru"`
 }
 
 func (q *Queries) UpdateRoleKelas(ctx context.Context, arg UpdateRoleKelasParams) error {
-	_, err := q.db.Exec(ctx, updateRoleKelas, arg.ID, arg.Role)
+	_, err := q.db.Exec(ctx, updateRoleKelas, arg.PenggunaID, arg.KodeKelas, arg.Guru)
 	return err
 }

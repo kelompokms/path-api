@@ -1,7 +1,6 @@
 package postingan
 
 import (
-	"mime/multipart"
 	"path-api/internal/db"
 )
 
@@ -14,23 +13,22 @@ func New(db *db.Queries) *Handler {
 }
 
 type CreatePostinganRequest struct {
-	KelasID   int32       `param:"kelasID" validate:"required"`
-	Judul     string      `json:"judul" validate:"required"`
-	Deskripsi string      `json:"deskripsi"`
-	Lampiran  []string    `json:"lampiran"`
-	Tipe      db.TipePost `json:"tipe" validate:"required,oneof=tugas materi"`
+	KelasID   int32    `param:"kelasID" validate:"required"`
+	Judul     string   `json:"judul" validate:"required"`
+	Deskripsi string   `json:"deskripsi"`
+	Lampiran  []string `json:"lampiran"`
+	TipeID    int32    `json:"tipe" validate:"required,gte=1,lte=2"`
 }
 
 type ListPostinganRequest struct {
-	Tipe      db.TipePost `query:"tipe" validate:"required,oneof=tugas materi"`
-	KodeKelas string      `param:"kode_kelas" validate:"required"`
-	Mapel     string      `query:"mapel"`
+	TipeID    int32  `query:"tipe" validate:"required,,gte=1,lte=2"`
+	KodeKelas string `param:"kode_kelas" validate:"required"`
+	Mapel     string `query:"mapel"`
 }
 type EditPostinganRequest struct {
-	KelasID     int32                   `param:"kelasID" validate:"required"`
-	PostinganID int32                   `param:"postinganID" validate:"required"`
-	Judul       string                  `json:"judul" validate:"required"`
-	Deskripsi   string                  `json:"deskripsi"`
-	Lampiran    []*multipart.FileHeader `json:"lampiran"`
-	Tipe        db.TipePost             `json:"tipe" validate:"omitempty,oneof=tugas materi"`
+	KelasID     int32  `param:"kelasID" validate:"required"`
+	PostinganID int32  `param:"postinganID" validate:"required"`
+	Judul       string `json:"judul" validate:"required"`
+	Deskripsi   string `json:"deskripsi"`
+	TipeID      int32  `json:"tipe" validate:"required,gte=1,lte=2"`
 }

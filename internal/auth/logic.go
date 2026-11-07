@@ -47,7 +47,7 @@ func (h *Handler) Register(c *echo.Context) error {
 	}
 
 	userID, err := h.db.CreatePengguna(c.Request().Context(), db.CreatePenggunaParams{
-		Username: req.Username,
+		Nama:     req.Nama,
 		Email:    req.Email,
 		Password: string(hashedPassword),
 	})
@@ -56,7 +56,7 @@ func (h *Handler) Register(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses register")
 	}
 
-	token, err := utils.NewToken(userID)
+	token, err := utils.NewToken(userID, false)
 	if err != nil {
 		log.Println("Error membuat token:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses register")
@@ -103,7 +103,7 @@ func (h *Handler) Login(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username atau password salah")
 	}
 
-	token, err := utils.NewToken(pengguna.ID)
+	token, err := utils.NewToken(pengguna.ID, pengguna.Admin)
 	if err != nil {
 		log.Println("Error membuat token:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memproses login")

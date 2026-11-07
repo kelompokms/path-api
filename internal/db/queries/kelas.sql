@@ -1,5 +1,5 @@
 -- name: CreateKelas :one
-INSERT INTO kelas (nama, tingkat, pembuat, kode_kelas)
+INSERT INTO kelas (nama, tingkat, pengampu, kode_kelas)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
@@ -12,7 +12,7 @@ WHERE pengguna_id = $1;
 SELECT * FROM kelas WHERE kode_kelas = $1;
 
 -- name: JoinKelas :exec
-INSERT INTO anggota_kelas (pengguna_id, kelas_id, role)
+INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
 VALUES ($1, $2, $3);
 
 -- name: GetKelasID :one
@@ -20,17 +20,18 @@ SELECT id FROM kelas WHERE kode_kelas = $1;
 
 -- name: UpdateRoleKelas :exec
 UPDATE anggota_kelas
-SET role = $2
-WHERE id = $1;
+SET guru = $3
+WHERE pengguna_id = $1
+AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1);
 
 -- name: ListAnggotaKelas :one
 SELECT * FROM anggota_kelas
-WHERE kelas_id = $1;
+WHERE kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $1 LIMIT 1);
 
 -- name: CheckAnggotaKelas :one
 SELECT 1 FROM anggota_kelas
-WHERE pengguna_id = $1 AND kelas_id = $2;
+WHERE pengguna_id = $1 AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1);
 
 -- name: LeaveKelas :exec
 DELETE FROM anggota_kelas
-WHERE kelas_id = $1 AND pengguna_id = $2;
+WHERE pengguna_id = $1 AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1);

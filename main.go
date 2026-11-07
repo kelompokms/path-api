@@ -10,6 +10,7 @@ import (
 	"path-api/internal/kelas"
 	"path-api/internal/pengguna"
 	"path-api/internal/postingan"
+	"path-api/internal/admin"
 	"path-api/internal/utils"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -66,6 +67,9 @@ func main() {
 
 	filesHandler := files.New(q)
 	filesHandler.Routes(protected)
+
+	adminHandler := admin.New(q)
+	adminHandler.Routes(protected)
 
 	port := utils.GetPort()
 	err = e.Start(port)

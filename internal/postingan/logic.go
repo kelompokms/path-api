@@ -41,7 +41,7 @@ func (h *Handler) Create(c *echo.Context) error {
 		Judul:      req.Judul,
 		Deskripsi:  deskripsiParam,
 		Lampiran:   req.Lampiran,
-		Tipe:       req.Tipe,
+		TipeID:     req.TipeID,
 		PenggunaID: claims.UserID,
 		KelasID:    req.KelasID,
 	})
@@ -76,13 +76,13 @@ func (h *Handler) List(c *echo.Context) error {
 	}
 
 	tugas, err := h.db.ListPostingan(c.Request().Context(), db.ListPostinganParams{
-		Tipe:          req.Tipe,
+		TipeID:        req.TipeID,
 		PenggunaID:    claims.UserID,
 		KelasID:       kelasID,
 		MataPelajaran: mapelParam,
 	})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data "+string(req.Tipe))
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil postingan")
 	}
 	return c.JSON(http.StatusOK, tugas)
 }
@@ -105,11 +105,20 @@ func (h *Handler) Edit(c *echo.Context) error {
 		ID:        req.PostinganID,
 		Judul:     req.Judul,
 		Deskripsi: deskripsiParam,
-		Tipe:      req.Tipe,
+		TipeID:    req.TipeID,
 	})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui postingan")
 	}
 
 	return c.JSON(http.StatusOK, updatedPost)
+}
+
+func (h *Handler) ListTipe(c *echo.Context) error {
+	tipe, err := h.db.ListTipePostingan(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui postingan")
+	}
+
+	return c.JSON(http.StatusOK, tipe)
 }

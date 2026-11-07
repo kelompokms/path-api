@@ -5,101 +5,14 @@
 package db
 
 import (
-	"database/sql/driver"
-	"fmt"
-
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-type RoleKelas string
-
-const (
-	RoleKelasPengajar RoleKelas = "pengajar"
-	RoleKelasMurid    RoleKelas = "murid"
-)
-
-func (e *RoleKelas) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = RoleKelas(s)
-	case string:
-		*e = RoleKelas(s)
-	default:
-		return fmt.Errorf("unsupported scan type for RoleKelas: %T", src)
-	}
-	return nil
-}
-
-type NullRoleKelas struct {
-	RoleKelas RoleKelas `json:"role_kelas"`
-	Valid     bool      `json:"valid"` // Valid is true if RoleKelas is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullRoleKelas) Scan(value interface{}) error {
-	if value == nil {
-		ns.RoleKelas, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.RoleKelas.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullRoleKelas) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.RoleKelas), nil
-}
-
-type TipePost string
-
-const (
-	TipePostMateri TipePost = "materi"
-	TipePostTugas  TipePost = "tugas"
-)
-
-func (e *TipePost) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = TipePost(s)
-	case string:
-		*e = TipePost(s)
-	default:
-		return fmt.Errorf("unsupported scan type for TipePost: %T", src)
-	}
-	return nil
-}
-
-type NullTipePost struct {
-	TipePost TipePost `json:"tipe_post"`
-	Valid    bool     `json:"valid"` // Valid is true if TipePost is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullTipePost) Scan(value interface{}) error {
-	if value == nil {
-		ns.TipePost, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.TipePost.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullTipePost) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.TipePost), nil
-}
 
 type AnggotaKela struct {
 	ID         int32            `json:"id"`
 	PenggunaID int32            `json:"pengguna_id"`
 	KelasID    int32            `json:"kelas_id"`
-	Role       RoleKelas        `json:"role"`
+	Guru       bool             `json:"guru"`
 	Dibuat     pgtype.Timestamp `json:"dibuat"`
 }
 
@@ -115,18 +28,19 @@ type Kela struct {
 	ID        int32            `json:"id"`
 	Nama      string           `json:"nama"`
 	Tingkat   pgtype.Text      `json:"tingkat"`
-	Pembuat   int32            `json:"pembuat"`
 	KodeKelas string           `json:"kode_kelas"`
 	Dibuat    pgtype.Timestamp `json:"dibuat"`
+	Pengampu  pgtype.Int4      `json:"pengampu"`
 }
 
 type Pengguna struct {
 	ID             int32            `json:"id"`
-	Username       string           `json:"username"`
+	Nama           string           `json:"nama"`
 	Email          string           `json:"email"`
 	Phone          pgtype.Text      `json:"phone"`
 	ProfilePicture pgtype.Text      `json:"profile_picture"`
 	Password       string           `json:"password"`
+	Admin          bool             `json:"admin"`
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
 }
 
@@ -143,9 +57,14 @@ type Postingan struct {
 	Judul         string           `json:"judul"`
 	Deskripsi     pgtype.Text      `json:"deskripsi"`
 	Lampiran      []string         `json:"lampiran"`
-	Tipe          TipePost         `json:"tipe"`
 	MataPelajaran pgtype.Text      `json:"mata_pelajaran"`
 	PenggunaID    int32            `json:"pengguna_id"`
 	KelasID       int32            `json:"kelas_id"`
+	TipeID        int32            `json:"tipe_id"`
 	Dibuat        pgtype.Timestamp `json:"dibuat"`
+}
+
+type TipePostingan struct {
+	ID   int32  `json:"id"`
+	Nama string `json:"nama"`
 }

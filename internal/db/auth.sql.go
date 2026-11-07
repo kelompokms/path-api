@@ -10,18 +10,19 @@ import (
 )
 
 const getPasswordPenggunaByEmail = `-- name: GetPasswordPenggunaByEmail :one
-SELECT id, password FROM pengguna WHERE email = $1
+SELECT id, password, admin FROM pengguna WHERE email = $1
 `
 
 type GetPasswordPenggunaByEmailRow struct {
 	ID       int32  `json:"id"`
 	Password string `json:"password"`
+	Admin    bool   `json:"admin"`
 }
 
 func (q *Queries) GetPasswordPenggunaByEmail(ctx context.Context, email string) (GetPasswordPenggunaByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getPasswordPenggunaByEmail, email)
 	var i GetPasswordPenggunaByEmailRow
-	err := row.Scan(&i.ID, &i.Password)
+	err := row.Scan(&i.ID, &i.Password, &i.Admin)
 	return i, err
 }
 

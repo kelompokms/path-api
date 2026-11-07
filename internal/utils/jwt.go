@@ -11,6 +11,7 @@ import (
 
 type JWTCustomClaims struct {
 	UserID int32 `json:"user_id"`
+	Admin  bool  `json:"admin"`
 	jwt.RegisteredClaims
 }
 
@@ -24,9 +25,10 @@ var JWTConfig echojwt.Config = echojwt.Config{
 	SigningKey: []byte(GetSecret()),
 }
 
-func NewToken(UserID int32) (string, error) {
+func NewToken(userID int32, admin bool) (string, error) {
 	claims := &JWTCustomClaims{
-		UserID: UserID,
+		UserID: userID,
+		Admin:  admin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 168)),
 		},

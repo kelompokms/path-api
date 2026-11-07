@@ -96,7 +96,7 @@ func (h *Handler) Create(c *echo.Context) error {
 	kelas, err := h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
 		Nama:      req.Nama,
 		Tingkat:   tingkatParam,
-		Pembuat:   claims.UserID,
+		Pengampu:  pgtype.Int4{Int32: claims.UserID, Valid: false},
 		KodeKelas: kodeKelas,
 	})
 
@@ -143,7 +143,7 @@ func (h *Handler) Join(c *echo.Context) error {
 
 	exists, err := h.db.CheckAnggotaKelas(c.Request().Context(), db.CheckAnggotaKelasParams{
 		PenggunaID: claims.UserID,
-		KelasID:    kelasID,
+		KodeKelas:  req.KodeKelas,
 	})
 	if exists != 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "anda sudah bergabung di kelas ini")
@@ -189,13 +189,8 @@ func (h *Handler) Leave(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	kelasID, err := h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "kelas tidak ditemukan")
-	}
-
 	err = h.db.LeaveKelas(c.Request().Context(), db.LeaveKelasParams{
-		KelasID:    kelasID,
+		KodeKelas:  req.KodeKelas,
 		PenggunaID: claims.UserID,
 	})
 	if err != nil {
