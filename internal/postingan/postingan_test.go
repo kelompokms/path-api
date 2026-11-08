@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,27 +70,30 @@ func TestCreatePostingan(t *testing.T) {
 
 	t.Run("successful create postingan", func(t *testing.T) {
 		reqBody := CreatePostinganRequest{
-			KelasID:   1,
 			Judul:     "Tugas 1",
 			Deskripsi: "Kerjakan halaman 10",
-			Lampiran:  []string{"file.pdf"},
+			Lampiran:  []string{"https://example.com/file.pdf"},
 			TipeID:    1,
 		}
 		jsonBody, _ := json.Marshal(reqBody)
 
-		req := httptest.NewRequest(http.MethodPost, "/kelas/1/posts", bytes.NewReader(jsonBody))
+		req := httptest.NewRequest(http.MethodPost, "/kelas/ABC123/posts", bytes.NewReader(jsonBody))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPathValues(echo.PathValues{
-			{Name: "kelasID", Value: "1"},
+			{Name: "kode_kelas", Value: "ABC123"},
 		})
 		setAuthContext(c, 1, false)
 
-		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
-			AddRow(int32(1), "Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"file.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
+		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		)
 
-		mockPool.ExpectQuery("INSERT").WithArgs("Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"file.pdf"}, int32(1), int32(1), int32(1), pgtype.Text{String: "", Valid: false}).WillReturnRows(rows)
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(int32(1), "Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"https://example.com/file.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
+
+		mockPool.ExpectQuery("INSERT").WithArgs("Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"https://example.com/file.pdf"}, int32(1), int32(1), int32(1), pgtype.Text{String: "", Valid: false}).WillReturnRows(rows)
 
 		err := h.Create(c)
 		assert.NoError(t, err)
@@ -148,32 +152,128 @@ func TestEditPostingan(t *testing.T) {
 
 	t.Run("successful edit postingan", func(t *testing.T) {
 		reqBody := EditPostinganRequest{
-			KelasID:     1,
 			PostinganID: 1,
 			Judul:       "Updated Judul",
 			Deskripsi:   "Updated Deskripsi",
+			Lampiran:    &[]string{"https://example.com/file.pdf"},
 			TipeID:      1,
 		}
 		jsonBody, _ := json.Marshal(reqBody)
 
-		req := httptest.NewRequest(http.MethodPatch, "/kelas/1/postingan/1", bytes.NewReader(jsonBody))
+		req := httptest.NewRequest(http.MethodPatch, "/kelas/ABC123/postingan/1", bytes.NewReader(jsonBody))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPathValues(echo.PathValues{
-			{Name: "kelasID", Value: "1"},
+			{Name: "kode_kelas", Value: "ABC123"},
 			{Name: "postinganID", Value: "1"},
 		})
 		setAuthContext(c, 1, false)
 
 		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
-			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string{}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
+			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string{"https://example.com/file.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
 
-		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string(nil), int32(1)).WillReturnRows(rows)
+		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string{"https://example.com/file.pdf"}, int32(1)).WillReturnRows(rows)
 
 		err := h.Edit(c)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
+
+	t.Run("omitted lampiran keeps existing attachments", func(t *testing.T) {
+		reqBody := EditPostinganRequest{
+			PostinganID: 1,
+			Judul:       "Updated Judul",
+			TipeID:      1,
+		}
+		jsonBody, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPatch, "/kelas/ABC123/postingan/1", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "1"},
+		})
+		setAuthContext(c, 1, false)
+
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string{"existing.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
+
+		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string(nil), int32(1)).WillReturnRows(rows)
+
+		err := h.Edit(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestNormalizeLampiran(t *testing.T) {
+	uploadPath := "/uploads/2026/11/08/" + strings.Repeat("a", 32) + ".pdf"
+
+	tests := []struct {
+		name    string
+		input   []string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:  "nil lampiran",
+			input: nil,
+			want:  nil,
+		},
+		{
+			name:  "link",
+			input: []string{"https://example.com/file.pdf"},
+			want:  []string{"https://example.com/file.pdf"},
+		},
+		{
+			name:  "upload path",
+			input: []string{uploadPath},
+			want:  []string{uploadPath},
+		},
+		{
+			name:  "relative upload path is normalized",
+			input: []string{strings.TrimPrefix(uploadPath, "/")},
+			want:  []string{uploadPath},
+		},
+		{
+			name: "too many attachments",
+			input: []string{
+				"https://example.com/1", "https://example.com/2", "https://example.com/3",
+				"https://example.com/4", "https://example.com/5", "https://example.com/6",
+			},
+			wantErr: true,
+		},
+		{
+			name:    "plain file name is rejected",
+			input:   []string{"file.pdf"},
+			wantErr: true,
+		},
+		{
+			name:    "non http scheme is rejected",
+			input:   []string{"javascript:alert(1)"},
+			wantErr: true,
+		},
+		{
+			name:    "empty attachment is rejected",
+			input:   []string{"   "},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeLampiran(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
