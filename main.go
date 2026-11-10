@@ -4,13 +4,13 @@ import (
 	"context"
 	"log"
 	_ "path-api/docs"
+	"path-api/internal/admin"
 	"path-api/internal/auth"
 	"path-api/internal/db"
 	"path-api/internal/files"
 	"path-api/internal/kelas"
 	"path-api/internal/pengguna"
 	"path-api/internal/postingan"
-	"path-api/internal/admin"
 	"path-api/internal/utils"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -45,6 +45,7 @@ func main() {
 
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
+	e.Use(middleware.CORS("*"))
 
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
