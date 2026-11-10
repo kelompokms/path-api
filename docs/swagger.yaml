@@ -1,5 +1,52 @@
 basePath: /
 definitions:
+  admin.ListAdminResponse:
+    properties:
+      admin:
+        example: true
+        type: boolean
+      dibuat:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      email:
+        example: admin@example.com
+        type: string
+      id:
+        example: 1
+        type: integer
+      nama:
+        example: Admin
+        type: string
+      phone:
+        example: "08123456789"
+        type: string
+      profile_picture:
+        example: uploads/pfp/admin.jpg
+        type: string
+    type: object
+  admin.ListGuruResponse:
+    properties:
+      kelas_id:
+        example: 1
+        type: integer
+      nama_kelas:
+        example: Matematika
+        type: string
+      nama_pengguna:
+        example: Guru Budi
+        type: string
+      pengguna_id:
+        example: 2
+        type: integer
+    type: object
+  admin.UpdateGuruPayload:
+    properties:
+      role_guru:
+        example: true
+        type: boolean
+    required:
+    - role_guru
+    type: object
   auth.LoginRequest:
     properties:
       email:
@@ -35,6 +82,25 @@ definitions:
       token:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
+    type: object
+  files.UploadPostinganFilesResponse:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/files.UploadedPostinganFile'
+        type: array
+    type: object
+  files.UploadedPostinganFile:
+    properties:
+      nama:
+        example: tugas.pdf
+        type: string
+      path:
+        example: /uploads/2026/11/08/9f8e7d6c5b4a39281706f5e4d3c2b1a0.pdf
+        type: string
+      ukuran:
+        example: 102400
+        type: integer
     type: object
   kelas.CreateKelasRequest:
     properties:
@@ -96,6 +162,146 @@ definitions:
         example: John Doe
         type: string
     type: object
+  pengguna.PenggunaDataResponse:
+    properties:
+      email:
+        example: johndoe@example.com
+        type: string
+      id:
+        example: 1
+        type: integer
+      nama:
+        example: John Doe
+        type: string
+      phone:
+        example: "08123456789"
+        type: string
+      profile_picture:
+        example: uploads/pfp/2026/11/10/user1_abc.jpg
+        type: string
+    type: object
+  pengguna.ResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 8
+        type: string
+      old_password:
+        minLength: 8
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  pengguna.UpdateEmailRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  pengguna.UpdatePenggunaResponse:
+    properties:
+      data:
+        $ref: '#/definitions/pengguna.PenggunaDataResponse'
+      message:
+        example: Data berhasil diperbarui
+        type: string
+    type: object
+  pengguna.UpdatePhoneRequest:
+    properties:
+      phone:
+        type: string
+    required:
+    - phone
+    type: object
+  postingan.CreatePostinganPayload:
+    properties:
+      deskripsi:
+        example: Pelajari materi berikut
+        type: string
+      judul:
+        example: Materi Bab 1
+        type: string
+      lampiran:
+        example:
+        - '["/uploads/2026/11/08/abc.pdf"]'
+        items:
+          type: string
+        type: array
+      tipe:
+        example: 1
+        maximum: 2
+        minimum: 1
+        type: integer
+    required:
+    - judul
+    - tipe
+    type: object
+  postingan.EditPostinganPayload:
+    properties:
+      deskripsi:
+        example: Deskripsi Baru
+        type: string
+      judul:
+        example: Judul Baru
+        type: string
+      lampiran:
+        example:
+        - '["/uploads/2026/11/08/abc.pdf"]'
+        items:
+          type: string
+        type: array
+      tipe:
+        example: 1
+        maximum: 2
+        minimum: 1
+        type: integer
+    required:
+    - judul
+    - tipe
+    type: object
+  postingan.PostinganResponse:
+    properties:
+      deskripsi:
+        example: Pelajari materi berikut
+        type: string
+      dibuat:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      id:
+        example: 1
+        type: integer
+      judul:
+        example: Materi Bab 1
+        type: string
+      kelas_id:
+        example: 1
+        type: integer
+      lampiran:
+        example:
+        - '["/uploads/2026/11/08/abc.pdf"]'
+        items:
+          type: string
+        type: array
+      mata_pelajaran:
+        example: Matematika
+        type: string
+      pengguna_id:
+        example: 1
+        type: integer
+      tipe_id:
+        example: 1
+        type: integer
+    type: object
+  postingan.TipePostinganResponse:
+    properties:
+      id:
+        example: 1
+        type: integer
+      nama:
+        example: Materi
+        type: string
+    type: object
   utils.HTTPResponse:
     properties:
       message:
@@ -111,6 +317,137 @@ info:
   title: PATH API Documentation
   version: "1.0"
 paths:
+  /{kode_kelas}/guru:
+    patch:
+      consumes:
+      - application/json
+      description: Mengupdate status role guru pengguna pada kelas tertentu
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Update Guru Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UpdateGuruPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Update Role Guru
+      tags:
+      - Admin
+  /admin:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan daftar semua admin
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.ListAdminResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Admin
+      tags:
+      - Admin
+  /files/postingan:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload file lampiran untuk postingan (maksimal 5 file, maks 10
+        MB per file)
+      parameters:
+      - description: File lampiran postingan
+        in: formData
+        name: files
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/files.UploadPostinganFilesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Upload File Postingan
+      tags:
+      - Files
+  /guru:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan daftar semua guru beserta kelas yang diampu
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.ListGuruResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Guru
+      tags:
+      - Admin
   /kelas:
     get:
       consumes:
@@ -172,6 +509,34 @@ paths:
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
       summary: Buat Kelas
+      tags:
+      - Kelas
+  /kelas/{kode_kelas}:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan detail informasi kelas berdasarkan kode kelas
+      parameters:
+      - in: path
+        name: kode_kelas
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/kelas.ListKelasResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Get Detail Kelas
       tags:
       - Kelas
   /kelas/{kode_kelas}/gabung:
@@ -238,6 +603,133 @@ paths:
       summary: Leave Kelas
       tags:
       - Kelas
+  /kelas/{kode_kelas}/postingan/{postinganID}:
+    patch:
+      consumes:
+      - application/json
+      description: Memperbarui postingan yang ada pada kelas tertentu
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Postingan ID
+        in: path
+        name: postinganID
+        required: true
+        type: integer
+      - description: Edit Postingan Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/postingan.EditPostinganPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/postingan.PostinganResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Edit Postingan
+      tags:
+      - Postingan
+  /kelas/{kode_kelas}/posts:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan daftar postingan pada kelas berdasarkan tipe dan mata
+        pelajaran
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: 'Tipe Postingan (1: Tugas, 2: Materi)'
+        in: query
+        name: tipe
+        required: true
+        type: integer
+      - description: Mata Pelajaran
+        in: query
+        name: mapel
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/postingan.PostinganResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Postingan
+      tags:
+      - Postingan
+    post:
+      consumes:
+      - application/json
+      description: Membuat postingan baru (materi atau tugas) pada kelas tertentu
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Create Postingan Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/postingan.CreatePostinganPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/postingan.PostinganResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Buat Postingan
+      tags:
+      - Postingan
   /login:
     post:
       consumes:
@@ -297,6 +789,166 @@ paths:
       summary: Mendapatkan informasi pengguna
       tags:
       - Pengguna
+  /pengguna/email:
+    patch:
+      consumes:
+      - application/json
+      description: Memperbarui email pengguna yang sedang login
+      parameters:
+      - description: Update Email Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/pengguna.UpdateEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pengguna.UpdatePenggunaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Update Email Pengguna
+      tags:
+      - Pengguna
+  /pengguna/phone:
+    patch:
+      consumes:
+      - application/json
+      description: Memperbarui nomor handphone pengguna yang sedang login
+      parameters:
+      - description: Update Phone Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/pengguna.UpdatePhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pengguna.UpdatePenggunaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Update Nomor HP Pengguna
+      tags:
+      - Pengguna
+  /pengguna/profile-picture:
+    patch:
+      consumes:
+      - multipart/form-data
+      description: Memperbarui foto profil pengguna (PNG/JPG, maks 5MB, rasio 1:1)
+      parameters:
+      - description: File foto profil
+        in: formData
+        name: profile_picture
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pengguna.UpdatePenggunaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Update Foto Profil Pengguna
+      tags:
+      - Pengguna
+  /pengguna/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Mereset password pengguna dengan verifikasi password lama
+      parameters:
+      - description: Reset Password Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/pengguna.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Reset Password Pengguna
+      tags:
+      - Pengguna
+  /posts/tipe:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan daftar tipe postingan yang tersedia
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/postingan.TipePostinganResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Tipe Postingan
+      tags:
+      - Postingan
   /register:
     post:
       consumes:

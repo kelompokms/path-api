@@ -35,6 +35,17 @@ func (h *Handler) List(c *echo.Context) error {
 	return c.JSON(http.StatusOK, kelas)
 }
 
+// Get godoc
+//
+//	@Summary		Get Detail Kelas
+//	@Description	Mendapatkan detail informasi kelas berdasarkan kode kelas
+//	@Tags			Kelas
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	path		KodeKelasRequest	true	"Kode Kelas Request Payload"
+//	@Success		200		{object}	ListKelasResponse
+//	@Failure		400,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas} [get]
 func (h *Handler) Get(c *echo.Context) error {
 	var req KodeKelasRequest
 

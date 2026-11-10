@@ -45,3 +45,16 @@ type GetPenggunaFailure401Response struct {
 type GetPenggunaFailure400Response struct {
 	Message string `json:"message" example:"Data pengguna tidak ditemukan"`
 }
+
+type PenggunaDataResponse struct {
+	ID             int32  `json:"id" example:"1"`
+	Nama           string `json:"nama" example:"John Doe"`
+	Email          string `json:"email" example:"johndoe@example.com"`
+	Phone          string `json:"phone" example:"08123456789"`
+	ProfilePicture string `json:"profile_picture" example:"uploads/pfp/2026/11/10/user1_abc.jpg"`
+}
+
+type UpdatePenggunaResponse struct {
+	Message string               `json:"message" example:"Data berhasil diperbarui"`
+	Data    PenggunaDataResponse `json:"data"`
+}

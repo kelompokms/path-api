@@ -13,6 +13,144 @@
     "host": "api.patclass.app",
     "basePath": "/",
     "paths": {
+        "/admin": {
+            "get": {
+                "description": "Mendapatkan daftar semua admin",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List Admin",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/admin.ListAdminResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/files/postingan": {
+            "post": {
+                "description": "Upload file lampiran untuk postingan (maksimal 5 file, maks 10 MB per file)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Files"
+                ],
+                "summary": "Upload File Postingan",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "File lampiran postingan",
+                        "name": "files",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/files.UploadPostinganFilesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/guru": {
+            "get": {
+                "description": "Mendapatkan daftar semua guru beserta kelas yang diampu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List Guru",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/admin.ListGuruResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/kelas": {
             "get": {
                 "description": "List kelas menggunakan Bearer Token dan mengembalikan response list kelas",
@@ -94,6 +232,49 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/kelas/{kode_kelas}": {
+            "get": {
+                "description": "Mendapatkan detail informasi kelas berdasarkan kode kelas",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kelas"
+                ],
+                "summary": "Get Detail Kelas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kelas.ListKelasResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -205,6 +386,195 @@
                 }
             }
         },
+        "/kelas/{kode_kelas}/postingan/{postinganID}": {
+            "patch": {
+                "description": "Memperbarui postingan yang ada pada kelas tertentu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Edit Postingan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Edit Postingan Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/postingan.EditPostinganPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.PostinganResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/kelas/{kode_kelas}/posts": {
+            "get": {
+                "description": "Mendapatkan daftar postingan pada kelas berdasarkan tipe dan mata pelajaran",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "List Postingan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Tipe Postingan (1: Tugas, 2: Materi)",
+                        "name": "tipe",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Mata Pelajaran",
+                        "name": "mapel",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/postingan.PostinganResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Membuat postingan baru (materi atau tugas) pada kelas tertentu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Buat Postingan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Create Postingan Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/postingan.CreatePostinganPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.PostinganResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Login pengguna baru dengan Email dan Password, mengembalikan JWT token untuk Bearer Auth",
@@ -292,6 +662,250 @@
                 }
             }
         },
+        "/pengguna/email": {
+            "patch": {
+                "description": "Memperbarui email pengguna yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pengguna"
+                ],
+                "summary": "Update Email Pengguna",
+                "parameters": [
+                    {
+                        "description": "Update Email Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/pengguna.UpdateEmailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pengguna.UpdatePenggunaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/pengguna/phone": {
+            "patch": {
+                "description": "Memperbarui nomor handphone pengguna yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pengguna"
+                ],
+                "summary": "Update Nomor HP Pengguna",
+                "parameters": [
+                    {
+                        "description": "Update Phone Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/pengguna.UpdatePhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pengguna.UpdatePenggunaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/pengguna/profile-picture": {
+            "patch": {
+                "description": "Memperbarui foto profil pengguna (PNG/JPG, maks 5MB, rasio 1:1)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pengguna"
+                ],
+                "summary": "Update Foto Profil Pengguna",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "File foto profil",
+                        "name": "profile_picture",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pengguna.UpdatePenggunaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/pengguna/reset-password": {
+            "post": {
+                "description": "Mereset password pengguna dengan verifikasi password lama",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pengguna"
+                ],
+                "summary": "Reset Password Pengguna",
+                "parameters": [
+                    {
+                        "description": "Reset Password Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/pengguna.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/posts/tipe": {
+            "get": {
+                "description": "Mendapatkan daftar tipe postingan yang tersedia",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "List Tipe Postingan",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/postingan.TipePostinganResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/register": {
             "post": {
                 "description": "Mendaftarkan pengguna baru dengan Username, Email dan Password, mengembalikan JWT token untuk Bearer Auth",
@@ -337,9 +951,134 @@
                     }
                 }
             }
+        },
+        "/{kode_kelas}/guru": {
+            "patch": {
+                "description": "Mengupdate status role guru pengguna pada kelas tertentu",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Update Role Guru",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Guru Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateGuruPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "admin.ListAdminResponse": {
+            "type": "object",
+            "properties": {
+                "admin": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "dibuat": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "admin@example.com"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Admin"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "08123456789"
+                },
+                "profile_picture": {
+                    "type": "string",
+                    "example": "uploads/pfp/admin.jpg"
+                }
+            }
+        },
+        "admin.ListGuruResponse": {
+            "type": "object",
+            "properties": {
+                "kelas_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nama_kelas": {
+                    "type": "string",
+                    "example": "Matematika"
+                },
+                "nama_pengguna": {
+                    "type": "string",
+                    "example": "Guru Budi"
+                },
+                "pengguna_id": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "admin.UpdateGuruPayload": {
+            "type": "object",
+            "required": [
+                "role_guru"
+            ],
+            "properties": {
+                "role_guru": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
         "auth.LoginRequest": {
             "type": "object",
             "required": [
@@ -387,6 +1126,34 @@
                 "token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "files.UploadPostinganFilesResponse": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/files.UploadedPostinganFile"
+                    }
+                }
+            }
+        },
+        "files.UploadedPostinganFile": {
+            "type": "object",
+            "properties": {
+                "nama": {
+                    "type": "string",
+                    "example": "tugas.pdf"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "/uploads/2026/11/08/9f8e7d6c5b4a39281706f5e4d3c2b1a0.pdf"
+                },
+                "ukuran": {
+                    "type": "integer",
+                    "example": 102400
                 }
             }
         },
@@ -473,6 +1240,205 @@
                 "username": {
                     "type": "string",
                     "example": "John Doe"
+                }
+            }
+        },
+        "pengguna.PenggunaDataResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "johndoe@example.com"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "08123456789"
+                },
+                "profile_picture": {
+                    "type": "string",
+                    "example": "uploads/pfp/2026/11/10/user1_abc.jpg"
+                }
+            }
+        },
+        "pengguna.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "old_password"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "old_password": {
+                    "type": "string",
+                    "minLength": 8
+                }
+            }
+        },
+        "pengguna.UpdateEmailRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "pengguna.UpdatePenggunaResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/pengguna.PenggunaDataResponse"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Data berhasil diperbarui"
+                }
+            }
+        },
+        "pengguna.UpdatePhoneRequest": {
+            "type": "object",
+            "required": [
+                "phone"
+            ],
+            "properties": {
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "postingan.CreatePostinganPayload": {
+            "type": "object",
+            "required": [
+                "judul",
+                "tipe"
+            ],
+            "properties": {
+                "deskripsi": {
+                    "type": "string",
+                    "example": "Pelajari materi berikut"
+                },
+                "judul": {
+                    "type": "string",
+                    "example": "Materi Bab 1"
+                },
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"/uploads/2026/11/08/abc.pdf\"]"
+                    ]
+                },
+                "tipe": {
+                    "type": "integer",
+                    "maximum": 2,
+                    "minimum": 1,
+                    "example": 1
+                }
+            }
+        },
+        "postingan.EditPostinganPayload": {
+            "type": "object",
+            "required": [
+                "judul",
+                "tipe"
+            ],
+            "properties": {
+                "deskripsi": {
+                    "type": "string",
+                    "example": "Deskripsi Baru"
+                },
+                "judul": {
+                    "type": "string",
+                    "example": "Judul Baru"
+                },
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"/uploads/2026/11/08/abc.pdf\"]"
+                    ]
+                },
+                "tipe": {
+                    "type": "integer",
+                    "maximum": 2,
+                    "minimum": 1,
+                    "example": 1
+                }
+            }
+        },
+        "postingan.PostinganResponse": {
+            "type": "object",
+            "properties": {
+                "deskripsi": {
+                    "type": "string",
+                    "example": "Pelajari materi berikut"
+                },
+                "dibuat": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "judul": {
+                    "type": "string",
+                    "example": "Materi Bab 1"
+                },
+                "kelas_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"/uploads/2026/11/08/abc.pdf\"]"
+                    ]
+                },
+                "mata_pelajaran": {
+                    "type": "string",
+                    "example": "Matematika"
+                },
+                "pengguna_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "tipe_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "postingan.TipePostinganResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Materi"
                 }
             }
         },

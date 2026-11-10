@@ -104,9 +104,17 @@ func SaveProfilePicture(userID int32, fh *multipart.FileHeader) (string, error) 
 	return filepath.ToSlash(filepath.Join(relDir, filename)), nil
 }
 
-// UploadPostinganFiles handles the first step of the postingan workflow: the
-// frontend uploads files, receives their paths, and sends those paths back in
-// postingan.lampiran when creating the postingan.
+// UploadPostinganFiles godoc
+//
+//	@Summary		Upload File Postingan
+//	@Description	Upload file lampiran untuk postingan (maksimal 5 file, maks 10 MB per file)
+//	@Tags			Files
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			files	formData	file	true	"File lampiran postingan"
+//	@Success		201		{object}	UploadPostinganFilesResponse
+//	@Failure		400,500	{object}	utils.HTTPResponse
+//	@Router			/files/postingan [post]
 func (h *Handler) UploadPostinganFiles(c *echo.Context) error {
 	req := new(UploadPostinganFilesRequest)
 
