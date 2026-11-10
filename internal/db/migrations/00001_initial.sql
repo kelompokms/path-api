@@ -59,7 +59,13 @@ CREATE TABLE file (
     ukuran INTEGER NOT NULL,
     tanggal DATE NOT NULL
 );
-
+CREATE TABLE IF NOT EXISTS kalender_akademik (
+	id SERIAL PRIMARY KEY,
+	nama_kegiatan TEXT NOT NULL,
+	tanggal_mulai DATE NOT NULL,
+	tanggal_selesai DATE NOT NULL,
+	dibuat TIMESTAMP NOT NULL DEFAULT now()
+);
 -- +goose StatementBegin
 INSERT INTO tipe_postingan(nama) VALUES
 ('materi'),
@@ -78,3 +84,4 @@ DROP TABLE anggota_kelas;
 DROP TABLE kelas;
 DROP TABLE pengguna;
 DROP TABLE tipe_postingan;
+DROP TABLE kalender_akademik;
