@@ -32,6 +32,14 @@ func (h *Handler) List(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "tidak ada kelas")
 	}
 
+	kelasDiampu, err := h.db.ListKelasDiampu(c.Request().Context(), pgtype.Int4{Int32: claims.UserID, Valid: true})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusUnauthorized, "tidak ada kelas")
+	}
+
+	kelas = append(kelas, kelasDiampu...)
+
 	return c.JSON(http.StatusOK, kelas)
 }
 
@@ -96,19 +104,14 @@ func (h *Handler) Create(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	var tingkatParam pgtype.Text
-	if req.Tingkat != "" {
-		tingkatParam.Valid = true
-		tingkatParam.String = req.Tingkat
-	}
-
 	kodeKelas := utils.GenerateHashCode()
 
-	kelas, err := h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
-		Nama:      req.Nama,
-		Tingkat:   tingkatParam,
-		Pengampu:  pgtype.Int4{Int32: claims.UserID, Valid: false},
-		KodeKelas: kodeKelas,
+	err = h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
+		Nama:        req.Nama,
+		Tingkat:     req.Tingkat,
+		TahunAjaran: req.TahunAjaran,
+		Pengampu:    pgtype.Int4{Int32: claims.UserID, Valid: true},
+		KodeKelas:   kodeKelas,
 	})
 
 	if err != nil {
@@ -116,7 +119,7 @@ func (h *Handler) Create(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat kelas")
 	}
 
-	return c.JSON(http.StatusCreated, kelas)
+	return c.JSON(http.StatusCreated, utils.HTTPResponse{Message: "Kelas berhasil dibuat"})
 }
 
 // Join godoc

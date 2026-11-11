@@ -14,17 +14,19 @@ func New(db *db.Queries) *Handler {
 }
 
 type CreateKelasRequest struct {
-	Nama    string `json:"nama" validate:"required"`
-	Tingkat string `json:"tingkat"`
+	Nama        string `json:"nama" validate:"required"`
+	Tingkat     int16  `json:"tingkat" validate:"required"`
+	TahunAjaran string `json:"tahun_ajaran" validate:"required"`
 }
 
 type ListKelasResponse struct {
-	ID        int32     `json:"id" example:"2"`
-	Nama      string    `json:"nama" example:"Pemrograman Dasar"`
-	Tingkat   string    `json:"tingkat" example:"SMA"`
-	Pembuat   int32     `json:"pembuat" example:"1"`
-	KodeKelas string    `json:"kode_kelas" example:"A18D23"`
-	Dibuat    time.Time `json:"dibuat" example:"2006-01-02T15:04:05Z07:00"`
+	ID          int32     `json:"id" example:"2"`
+	Nama        string    `json:"nama" example:"Pemrograman Dasar"`
+	Tingkat     int16     `json:"tingkat" example:"10"`
+	TahunAjaran string    `json:"tahun_ajaran" example:"2026/2027"`
+	Pengampu    int32     `json:"pengampu" example:"1"`
+	KodeKelas   string    `json:"kode_kelas" example:"A18D23"`
+	Dibuat      time.Time `json:"dibuat" example:"2006-01-02T15:04:05Z07:00"`
 }
 
 type KodeKelasRequest struct {

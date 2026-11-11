@@ -1,12 +1,15 @@
--- name: CreateKelas :one
-INSERT INTO kelas (nama, tingkat, pengampu, kode_kelas)
-VALUES ($1, $2, $3, $4)
-RETURNING *;
+-- name: CreateKelas :exec
+INSERT INTO kelas (nama, tingkat, tahun_ajaran, pengampu, kode_kelas)
+VALUES ($1, $2, $3, $4, $5);
 
 -- name: ListKelas :many
 SELECT kelas.* FROM anggota_kelas
 JOIN kelas ON kelas_id = kelas.id
-WHERE pengguna_id = $1;
+WHERE pengguna_id = $1 AND pengampu != NULL;
+
+-- name: ListKelasDiampu :many
+SELECT kelas.* FROM kelas
+WHERE pengampu = $1;
 
 -- name: GetKelas :one
 SELECT * FROM kelas WHERE kode_kelas = $1;

@@ -28,40 +28,32 @@ func (q *Queries) CheckAnggotaKelas(ctx context.Context, arg CheckAnggotaKelasPa
 	return column_1, err
 }
 
-const createKelas = `-- name: CreateKelas :one
-INSERT INTO kelas (nama, tingkat, pengampu, kode_kelas)
-VALUES ($1, $2, $3, $4)
-RETURNING id, nama, tingkat, kode_kelas, dibuat, pengampu
+const createKelas = `-- name: CreateKelas :exec
+INSERT INTO kelas (nama, tingkat, tahun_ajaran, pengampu, kode_kelas)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateKelasParams struct {
-	Nama      string      `json:"nama"`
-	Tingkat   pgtype.Text `json:"tingkat"`
-	Pengampu  pgtype.Int4 `json:"pengampu"`
-	KodeKelas string      `json:"kode_kelas"`
+	Nama        string      `json:"nama"`
+	Tingkat     int16       `json:"tingkat"`
+	TahunAjaran string      `json:"tahun_ajaran"`
+	Pengampu    pgtype.Int4 `json:"pengampu"`
+	KodeKelas   string      `json:"kode_kelas"`
 }
 
-func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) (Kela, error) {
-	row := q.db.QueryRow(ctx, createKelas,
+func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) error {
+	_, err := q.db.Exec(ctx, createKelas,
 		arg.Nama,
 		arg.Tingkat,
+		arg.TahunAjaran,
 		arg.Pengampu,
 		arg.KodeKelas,
 	)
-	var i Kela
-	err := row.Scan(
-		&i.ID,
-		&i.Nama,
-		&i.Tingkat,
-		&i.KodeKelas,
-		&i.Dibuat,
-		&i.Pengampu,
-	)
-	return i, err
+	return err
 }
 
 const getKelas = `-- name: GetKelas :one
-SELECT id, nama, tingkat, kode_kelas, dibuat, pengampu FROM kelas WHERE kode_kelas = $1
+SELECT id, nama, tingkat, tahun_ajaran, kode_kelas, dibuat, pengampu FROM kelas WHERE kode_kelas = $1
 `
 
 func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) {
@@ -71,6 +63,7 @@ func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) 
 		&i.ID,
 		&i.Nama,
 		&i.Tingkat,
+		&i.TahunAjaran,
 		&i.KodeKelas,
 		&i.Dibuat,
 		&i.Pengampu,
@@ -139,9 +132,9 @@ func (q *Queries) ListAnggotaKelas(ctx context.Context, kodeKelas string) (Anggo
 }
 
 const listKelas = `-- name: ListKelas :many
-SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM anggota_kelas
+SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM anggota_kelas
 JOIN kelas ON kelas_id = kelas.id
-WHERE pengguna_id = $1
+WHERE pengguna_id = $1 AND pengampu != NULL
 `
 
 func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, error) {
@@ -157,6 +150,40 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, erro
 			&i.ID,
 			&i.Nama,
 			&i.Tingkat,
+			&i.TahunAjaran,
+			&i.KodeKelas,
+			&i.Dibuat,
+			&i.Pengampu,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKelasDiampu = `-- name: ListKelasDiampu :many
+SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM kelas
+WHERE pengampu = $1
+`
+
+func (q *Queries) ListKelasDiampu(ctx context.Context, pengampu pgtype.Int4) ([]Kela, error) {
+	rows, err := q.db.Query(ctx, listKelasDiampu, pengampu)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Kela
+	for rows.Next() {
+		var i Kela
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nama,
+			&i.Tingkat,
+			&i.TahunAjaran,
 			&i.KodeKelas,
 			&i.Dibuat,
 			&i.Pengampu,
