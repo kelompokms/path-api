@@ -24,6 +24,14 @@ type File struct {
 	Tanggal pgtype.Date `json:"tanggal"`
 }
 
+type KalenderAkademik struct {
+	ID             int32            `json:"id"`
+	NamaKegiatan   string           `json:"nama_kegiatan"`
+	TanggalMulai   pgtype.Date      `json:"tanggal_mulai"`
+	TanggalSelesai pgtype.Date      `json:"tanggal_selesai"`
+	Dibuat         pgtype.Timestamp `json:"dibuat"`
+}
+
 type Kela struct {
 	ID          int32            `json:"id"`
 	Nama        string           `json:"nama"`
