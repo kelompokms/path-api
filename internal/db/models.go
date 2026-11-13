@@ -33,12 +33,13 @@ type KalenderAkademik struct {
 }
 
 type Kela struct {
-	ID        int32            `json:"id"`
-	Nama      string           `json:"nama"`
-	Tingkat   pgtype.Text      `json:"tingkat"`
-	KodeKelas string           `json:"kode_kelas"`
-	Dibuat    pgtype.Timestamp `json:"dibuat"`
-	Pengampu  pgtype.Int4      `json:"pengampu"`
+	ID          int32            `json:"id"`
+	Nama        string           `json:"nama"`
+	Tingkat     int16            `json:"tingkat"`
+	TahunAjaran string           `json:"tahun_ajaran"`
+	KodeKelas   string           `json:"kode_kelas"`
+	Dibuat      pgtype.Timestamp `json:"dibuat"`
+	Pengampu    pgtype.Int4      `json:"pengampu"`
 }
 
 type Pengguna struct {

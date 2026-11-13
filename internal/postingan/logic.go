@@ -21,6 +21,18 @@ const maxLampiran = 5
 // /uploads/YYYY/MM/DD/<32 hex chars>.<ext>
 var uploadPathPattern = regexp.MustCompile(`^uploads/\d{4}/\d{2}/\d{2}/[a-f0-9]{32}\.[a-z0-9]+$`)
 
+// Create godoc
+//
+//	@Summary		Buat Postingan
+//	@Description	Membuat postingan baru (materi atau tugas) pada kelas tertentu
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas		path		string					true	"Kode Kelas"
+//	@Param			request			body		CreatePostinganPayload	true	"Create Postingan Request Payload"
+//	@Success		201				{object}	PostinganResponse
+//	@Failure		400,401,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/posts [post]
 func (h *Handler) Create(c *echo.Context) error {
 	req := new(CreatePostinganRequest)
 
@@ -72,6 +84,20 @@ func (h *Handler) Create(c *echo.Context) error {
 
 	return c.JSON(http.StatusCreated, post)
 }
+
+// List godoc
+//
+//	@Summary		List Postingan
+//	@Description	Mendapatkan daftar postingan pada kelas berdasarkan tipe dan mata pelajaran
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas	path		string	true	"Kode Kelas"
+//	@Param			tipe		query		int		true	"Tipe Postingan (1: Tugas, 2: Materi)"
+//	@Param			mapel		query		string	false	"Mata Pelajaran"
+//	@Success		200			{object}	[]PostinganResponse
+//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/posts [get]
 func (h *Handler) List(c *echo.Context) error {
 	var req ListPostinganRequest
 
@@ -106,6 +132,20 @@ func (h *Handler) List(c *echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, tugas)
 }
+
+// Edit godoc
+//
+//	@Summary		Edit Postingan
+//	@Description	Memperbarui postingan yang ada pada kelas tertentu
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas	path		string					true	"Kode Kelas"
+//	@Param			postinganID	path		int						true	"Postingan ID"
+//	@Param			request		body		EditPostinganPayload	true	"Edit Postingan Request Payload"
+//	@Success		200			{object}	PostinganResponse
+//	@Failure		400,500		{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/postingan/{postinganID} [patch]
 func (h *Handler) Edit(c *echo.Context) error {
 	req := new(EditPostinganRequest)
 
@@ -146,6 +186,16 @@ func (h *Handler) Edit(c *echo.Context) error {
 	return c.JSON(http.StatusOK, updatedPost)
 }
 
+// ListTipe godoc
+//
+//	@Summary		List Tipe Postingan
+//	@Description	Mendapatkan daftar tipe postingan yang tersedia
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	[]TipePostinganResponse
+//	@Failure		500	{object}	utils.HTTPResponse
+//	@Router			/posts/tipe [get]
 func (h *Handler) ListTipe(c *echo.Context) error {
 	tipe, err := h.db.ListTipePostingan(c.Request().Context())
 	if err != nil {

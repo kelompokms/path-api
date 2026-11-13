@@ -13,6 +13,18 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// UpdateGuru godoc
+//
+//	@Summary		Update Role Guru
+//	@Description	Mengupdate status role guru pengguna pada kelas tertentu
+//	@Tags			Admin
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas	path		string				true	"Kode Kelas"
+//	@Param			request		body		UpdateGuruPayload	true	"Update Guru Request Payload"
+//	@Success		200			{object}	utils.HTTPResponse
+//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Router			/{kode_kelas}/guru [patch]
 func (h *Handler) UpdateGuru(c *echo.Context) error {
 	var req UpdateGuruRequest
 	if err := c.Bind(&req); err != nil {
@@ -48,6 +60,16 @@ func (h *Handler) UpdateGuru(c *echo.Context) error {
 	return c.JSON(http.StatusOK, utils.HTTPResponse{Message: "Berhasil mengupdate role guru"})
 }
 
+// ListGuru godoc
+//
+//	@Summary		List Guru
+//	@Description	Mendapatkan daftar semua guru beserta kelas yang diampu
+//	@Tags			Admin
+//	@Accept			json
+//	@Produce		json
+//	@Success		200			{object}	[]ListGuruResponse
+//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Router			/guru [get]
 func (h *Handler) ListGuru(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -67,6 +89,16 @@ func (h *Handler) ListGuru(c *echo.Context) error {
 	return c.JSON(http.StatusOK, guru)
 }
 
+// ListAdmin godoc
+//
+//	@Summary		List Admin
+//	@Description	Mendapatkan daftar semua admin
+//	@Tags			Admin
+//	@Accept			json
+//	@Produce		json
+//	@Success		200				{object}	[]ListAdminResponse
+//	@Failure		400,401,403,500	{object}	utils.HTTPResponse
+//	@Router			/admin [get]
 func (h *Handler) ListAdmin(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {

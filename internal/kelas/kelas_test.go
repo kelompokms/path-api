@@ -101,7 +101,7 @@ func TestCreateKelas(t *testing.T) {
 	t.Run("successful create", func(t *testing.T) {
 		reqBody := CreateKelasRequest{
 			Nama:    "Fisika",
-			Tingkat: "SMA",
+			Tingkat: 10,
 		}
 		jsonBody, _ := json.Marshal(reqBody)
 

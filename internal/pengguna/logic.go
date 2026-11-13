@@ -38,6 +38,17 @@ func (h *Handler) Get(c *echo.Context) error {
 	return c.JSON(http.StatusOK, pengguna)
 }
 
+// UpdateEmail godoc
+//
+//	@Summary		Update Email Pengguna
+//	@Description	Memperbarui email pengguna yang sedang login
+//	@Tags			Pengguna
+//	@Accept			json
+//	@Produce		json
+//	@Param			request		body		UpdateEmailRequest	true	"Update Email Request Payload"
+//	@Success		200			{object}	UpdatePenggunaResponse
+//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Router			/pengguna/email [patch]
 func (h *Handler) UpdateEmail(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -73,6 +84,17 @@ func (h *Handler) UpdateEmail(c *echo.Context) error {
 	})
 }
 
+// UpdatePhone godoc
+//
+//	@Summary		Update Nomor HP Pengguna
+//	@Description	Memperbarui nomor handphone pengguna yang sedang login
+//	@Tags			Pengguna
+//	@Accept			json
+//	@Produce		json
+//	@Param			request		body		UpdatePhoneRequest	true	"Update Phone Request Payload"
+//	@Success		200			{object}	UpdatePenggunaResponse
+//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Router			/pengguna/phone [patch]
 func (h *Handler) UpdatePhone(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -104,6 +126,17 @@ func (h *Handler) UpdatePhone(c *echo.Context) error {
 	})
 }
 
+// UpdateProfilePicture godoc
+//
+//	@Summary		Update Foto Profil Pengguna
+//	@Description	Memperbarui foto profil pengguna (PNG/JPG, maks 5MB, rasio 1:1)
+//	@Tags			Pengguna
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			profile_picture	formData	file	true	"File foto profil"
+//	@Success		200				{object}	UpdatePenggunaResponse
+//	@Failure		400,401,500		{object}	utils.HTTPResponse
+//	@Router			/pengguna/profile-picture [patch]
 func (h *Handler) UpdateProfilePicture(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -139,6 +172,17 @@ func (h *Handler) UpdateProfilePicture(c *echo.Context) error {
 	})
 }
 
+// ResetPassword godoc
+//
+//	@Summary		Reset Password Pengguna
+//	@Description	Mereset password pengguna dengan verifikasi password lama
+//	@Tags			Pengguna
+//	@Accept			json
+//	@Produce		json
+//	@Param			request			body		ResetPasswordRequest	true	"Reset Password Request Payload"
+//	@Success		200				{object}	utils.HTTPResponse
+//	@Failure		400,401,404,500	{object}	utils.HTTPResponse
+//	@Router			/pengguna/reset-password [post]
 func (h *Handler) ResetPassword(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {

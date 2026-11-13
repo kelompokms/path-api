@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS pengguna (
 CREATE TABLE IF NOT EXISTS kelas (
 	id SERIAL PRIMARY KEY,
 	nama TEXT NOT NULL,
-	tingkat TEXT,
+	tingkat SMALLINT NOT NULL,
+	tahun_ajaran TEXT NOT NULL,
 	kode_kelas VARCHAR(6) NOT NULL UNIQUE,
 	dibuat TIMESTAMP NOT NULL DEFAULT now(),
 	pengampu INTEGER REFERENCES pengguna (id)
