@@ -1166,14 +1166,19 @@ const docTemplate = `{
         "kelas.CreateKelasRequest": {
             "type": "object",
             "required": [
-                "nama"
+                "nama",
+                "tahun_ajaran",
+                "tingkat"
             ],
             "properties": {
                 "nama": {
                     "type": "string"
                 },
-                "tingkat": {
+                "tahun_ajaran": {
                     "type": "string"
+                },
+                "tingkat": {
+                    "type": "integer"
                 }
             }
         },
@@ -1196,13 +1201,17 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Pemrograman Dasar"
                 },
-                "pembuat": {
+                "pengampu": {
                     "type": "integer",
                     "example": 1
                 },
-                "tingkat": {
+                "tahun_ajaran": {
                     "type": "string",
-                    "example": "SMA"
+                    "example": "2026/2027"
+                },
+                "tingkat": {
+                    "type": "integer",
+                    "example": 10
                 }
             }
         },

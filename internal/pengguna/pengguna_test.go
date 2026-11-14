@@ -3,8 +3,13 @@ package pengguna
 import (
 	"bytes"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"path-api/internal/db"
@@ -125,6 +130,51 @@ func TestUpdatePhone(t *testing.T) {
 
 		err := h.UpdatePhone(c)
 		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestUpdateProfilePicture(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	queries := db.New(mockPool)
+	h := New(queries)
+
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	t.Run("successful update profile picture", func(t *testing.T) {
+		defer os.RemoveAll("uploads")
+
+		img := image.NewRGBA(image.Rect(0, 0, 8, 8))
+		img.Set(0, 0, color.RGBA{R: 255, A: 255})
+		var pngBuf bytes.Buffer
+		require.NoError(t, png.Encode(&pngBuf, img))
+
+		var body bytes.Buffer
+		w := multipart.NewWriter(&body)
+		part, err := w.CreateFormFile("profile_picture", "avatar.png")
+		require.NoError(t, err)
+		_, err = part.Write(pngBuf.Bytes())
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+
+		req := httptest.NewRequest(http.MethodPatch, "/pengguna/profile-picture", &body)
+		req.Header.Set(echo.HeaderContentType, w.FormDataContentType())
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, false)
+
+		rows := pgxmock.NewRows([]string{"id", "nama", "email", "phone", "profile_picture"}).
+			AddRow(int32(1), "John Doe", "john@example.com", pgtype.Text{String: "", Valid: false}, pgtype.Text{String: "uploads/pfp/avatar.png", Valid: true})
+
+		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), pgxmock.AnyArg()).WillReturnRows(rows)
+
+		err = h.UpdateProfilePicture(c)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})

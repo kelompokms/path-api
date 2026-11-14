@@ -106,10 +106,14 @@ definitions:
     properties:
       nama:
         type: string
-      tingkat:
+      tahun_ajaran:
         type: string
+      tingkat:
+        type: integer
     required:
     - nama
+    - tahun_ajaran
+    - tingkat
     type: object
   kelas.ListKelasResponse:
     properties:
@@ -125,12 +129,15 @@ definitions:
       nama:
         example: Pemrograman Dasar
         type: string
-      pembuat:
+      pengampu:
         example: 1
         type: integer
-      tingkat:
-        example: SMA
+      tahun_ajaran:
+        example: 2026/2027
         type: string
+      tingkat:
+        example: 10
+        type: integer
     type: object
   pengguna.GetPenggunaFailure400Response:
     properties:
