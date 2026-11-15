@@ -42,13 +42,22 @@ type Kela struct {
 	Pengampu    pgtype.Int4      `json:"pengampu"`
 }
 
+type OauthAccount struct {
+	ID             int32            `json:"id"`
+	PenggunaID     int32            `json:"pengguna_id"`
+	Provider       string           `json:"provider"`
+	ProviderUserID string           `json:"provider_user_id"`
+	Email          string           `json:"email"`
+	Dibuat         pgtype.Timestamp `json:"dibuat"`
+}
+
 type Pengguna struct {
 	ID             int32            `json:"id"`
 	Nama           string           `json:"nama"`
 	Email          string           `json:"email"`
 	Phone          pgtype.Text      `json:"phone"`
 	ProfilePicture pgtype.Text      `json:"profile_picture"`
-	Password       string           `json:"password"`
+	Password       pgtype.Text      `json:"password"`
 	Admin          bool             `json:"admin"`
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
 }

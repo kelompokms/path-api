@@ -11,6 +11,7 @@ import (
 	"path-api/internal/utils"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/pashagolub/pgxmock/v6"
 	"github.com/stretchr/testify/assert"
@@ -68,7 +69,7 @@ func TestRegister(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), "hashed", false),
+			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), pgtype.Text{String: "hashed", Valid: true}, false),
 		)
 
 		err := h.Register(c)
@@ -107,7 +108,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), string(hashedPassword), false),
+			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, false),
 		)
 
 		err := h.Login(c)
@@ -130,7 +131,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), string(hashedPassword), false),
+			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, false),
 		)
 
 		err := h.Login(c)
@@ -139,6 +140,31 @@ func TestLogin(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Equal(t, "username atau password salah", httpErr.Message)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("oauth-only user cannot login with password", func(t *testing.T) {
+		reqBody := LoginRequest{
+			Email:    "oauth@example.com",
+			Password: "somepassword123",
+		}
+		jsonBody, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		mockPool.ExpectQuery("SELECT").WithArgs("oauth@example.com").WillReturnRows(
+			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(2), pgtype.Text{Valid: false}, false),
+		)
+
+		err := h.Login(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		assert.True(t, ok)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+		assert.Equal(t, "akun ini terdaftar melalui OAuth, silakan login dengan provider OAuth", httpErr.Message)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 }

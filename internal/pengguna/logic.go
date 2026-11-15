@@ -203,7 +203,11 @@ func (h *Handler) ResetPassword(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "Pengguna tidak ditemukan")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(password), []byte(req.OldPassword))
+	if !password.Valid {
+		return echo.NewHTTPError(http.StatusBadRequest, "Akun OAuth tidak memiliki password")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(password.String), []byte(req.OldPassword))
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusBadRequest, "Password tidak sesuai dengan password lama")
@@ -217,7 +221,7 @@ func (h *Handler) ResetPassword(c *echo.Context) error {
 
 	err = h.db.UpdatePasswordPengguna(c.Request().Context(), db.UpdatePasswordPenggunaParams{
 		ID:       claims.UserID,
-		Password: string(hashedPassword),
+		Password: pgtype.Text{String: string(hashedPassword), Valid: true},
 	})
 
 	if err != nil {

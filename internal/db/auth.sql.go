@@ -7,16 +7,42 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createOAuthPengguna = `-- name: CreateOAuthPengguna :one
+INSERT INTO pengguna (nama, email, profile_picture, admin)
+VALUES ($1, $2, $3, FALSE)
+RETURNING id, admin
+`
+
+type CreateOAuthPenggunaParams struct {
+	Nama           string      `json:"nama"`
+	Email          string      `json:"email"`
+	ProfilePicture pgtype.Text `json:"profile_picture"`
+}
+
+type CreateOAuthPenggunaRow struct {
+	ID    int32 `json:"id"`
+	Admin bool  `json:"admin"`
+}
+
+func (q *Queries) CreateOAuthPengguna(ctx context.Context, arg CreateOAuthPenggunaParams) (CreateOAuthPenggunaRow, error) {
+	row := q.db.QueryRow(ctx, createOAuthPengguna, arg.Nama, arg.Email, arg.ProfilePicture)
+	var i CreateOAuthPenggunaRow
+	err := row.Scan(&i.ID, &i.Admin)
+	return i, err
+}
 
 const getPasswordPenggunaByEmail = `-- name: GetPasswordPenggunaByEmail :one
 SELECT id, password, admin FROM pengguna WHERE email = $1
 `
 
 type GetPasswordPenggunaByEmailRow struct {
-	ID       int32  `json:"id"`
-	Password string `json:"password"`
-	Admin    bool   `json:"admin"`
+	ID       int32       `json:"id"`
+	Password pgtype.Text `json:"password"`
+	Admin    bool        `json:"admin"`
 }
 
 func (q *Queries) GetPasswordPenggunaByEmail(ctx context.Context, email string) (GetPasswordPenggunaByEmailRow, error) {
@@ -30,9 +56,83 @@ const getPasswordPenggunaByID = `-- name: GetPasswordPenggunaByID :one
 SELECT password FROM pengguna WHERE id = $1
 `
 
-func (q *Queries) GetPasswordPenggunaByID(ctx context.Context, id int32) (string, error) {
+func (q *Queries) GetPasswordPenggunaByID(ctx context.Context, id int32) (pgtype.Text, error) {
 	row := q.db.QueryRow(ctx, getPasswordPenggunaByID, id)
-	var password string
+	var password pgtype.Text
 	err := row.Scan(&password)
 	return password, err
+}
+
+const getPenggunaByEmail = `-- name: GetPenggunaByEmail :one
+SELECT id, nama, email, profile_picture, admin FROM pengguna WHERE email = $1
+`
+
+type GetPenggunaByEmailRow struct {
+	ID             int32       `json:"id"`
+	Nama           string      `json:"nama"`
+	Email          string      `json:"email"`
+	ProfilePicture pgtype.Text `json:"profile_picture"`
+	Admin          bool        `json:"admin"`
+}
+
+func (q *Queries) GetPenggunaByEmail(ctx context.Context, email string) (GetPenggunaByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getPenggunaByEmail, email)
+	var i GetPenggunaByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Nama,
+		&i.Email,
+		&i.ProfilePicture,
+		&i.Admin,
+	)
+	return i, err
+}
+
+const getPenggunaByOAuthAccount = `-- name: GetPenggunaByOAuthAccount :one
+SELECT p.id, p.admin
+FROM oauth_accounts oa
+JOIN pengguna p ON p.id = oa.pengguna_id
+WHERE oa.provider = $1 AND oa.provider_user_id = $2
+`
+
+type GetPenggunaByOAuthAccountParams struct {
+	Provider       string `json:"provider"`
+	ProviderUserID string `json:"provider_user_id"`
+}
+
+type GetPenggunaByOAuthAccountRow struct {
+	ID    int32 `json:"id"`
+	Admin bool  `json:"admin"`
+}
+
+func (q *Queries) GetPenggunaByOAuthAccount(ctx context.Context, arg GetPenggunaByOAuthAccountParams) (GetPenggunaByOAuthAccountRow, error) {
+	row := q.db.QueryRow(ctx, getPenggunaByOAuthAccount, arg.Provider, arg.ProviderUserID)
+	var i GetPenggunaByOAuthAccountRow
+	err := row.Scan(&i.ID, &i.Admin)
+	return i, err
+}
+
+const linkOAuthAccount = `-- name: LinkOAuthAccount :exec
+INSERT INTO oauth_accounts (pengguna_id, provider, provider_user_id, email)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (pengguna_id, provider) DO UPDATE
+SET provider_user_id = EXCLUDED.provider_user_id,
+    email = EXCLUDED.email
+`
+
+type LinkOAuthAccountParams struct {
+	PenggunaID     int32  `json:"pengguna_id"`
+	Provider       string `json:"provider"`
+	ProviderUserID string `json:"provider_user_id"`
+	Email          string `json:"email"`
+}
+
+func (q *Queries) LinkOAuthAccount(ctx context.Context, arg LinkOAuthAccountParams) error {
+	_, err := q.db.Exec(ctx, linkOAuthAccount,
+		arg.PenggunaID,
+		arg.Provider,
+		arg.ProviderUserID,
+		arg.Email,
+	)
+	return err
 }

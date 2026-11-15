@@ -47,7 +47,7 @@ func TestListAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		rows := pgxmock.NewRows([]string{"id", "nama", "email", "phone", "profile_picture", "password", "admin", "dibuat"}).
-			AddRow(int32(1), "Admin", "admin@example.com", pgtype.Text{String: "", Valid: false}, pgtype.Text{String: "", Valid: false}, "hash", true, time.Now())
+			AddRow(int32(1), "Admin", "admin@example.com", pgtype.Text{String: "", Valid: false}, pgtype.Text{String: "", Valid: false}, pgtype.Text{String: "hash", Valid: true}, true, time.Now())
 
 		mockPool.ExpectQuery("SELECT").WillReturnRows(rows)
 

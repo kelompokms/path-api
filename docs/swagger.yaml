@@ -396,6 +396,89 @@ paths:
       summary: List Admin
       tags:
       - Admin
+  /auth/oauth/{provider}:
+    get:
+      description: Mengalihkan pengguna ke halaman persetujuan OAuth2 provider (google
+        atau discord) dengan PKCE dan state cookie bertanda tangan
+      parameters:
+      - description: OAuth provider (google, discord)
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: URL redirect tujuan yang diizinkan (mis. pathmobile://app/oauth/callback)
+        in: query
+        name: redirect_uri
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect ke halaman login OAuth provider
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Inisiasi login OAuth2
+      tags:
+      - Auth
+  /auth/oauth/{provider}/callback:
+    get:
+      description: Menukar authorization code dari OAuth2 provider dengan data profil
+        terverifikasi, menautkan atau membuat akun pengguna, lalu mengembalikan JWT
+        token atau redirect ke target yang diizinkan
+      parameters:
+      - description: OAuth provider (google, discord)
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Authorization code dari OAuth provider
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: State token anti-CSRF
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.SuccessResponse'
+        "302":
+          description: Redirect ke frontend/mobile dengan token
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Callback login OAuth2
+      tags:
+      - Auth
   /files/postingan:
     post:
       consumes:

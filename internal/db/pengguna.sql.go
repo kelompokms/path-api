@@ -18,10 +18,10 @@ RETURNING id
 `
 
 type CreatePenggunaParams struct {
-	Nama     string `json:"nama"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Admin    bool   `json:"admin"`
+	Nama     string      `json:"nama"`
+	Email    string      `json:"email"`
+	Password pgtype.Text `json:"password"`
+	Admin    bool        `json:"admin"`
 }
 
 func (q *Queries) CreatePengguna(ctx context.Context, arg CreatePenggunaParams) (int32, error) {
@@ -184,8 +184,8 @@ UPDATE pengguna SET password = $2 WHERE id = $1
 `
 
 type UpdatePasswordPenggunaParams struct {
-	ID       int32  `json:"id"`
-	Password string `json:"password"`
+	ID       int32       `json:"id"`
+	Password pgtype.Text `json:"password"`
 }
 
 func (q *Queries) UpdatePasswordPengguna(ctx context.Context, arg UpdatePasswordPenggunaParams) error {

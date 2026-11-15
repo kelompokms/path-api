@@ -6,6 +6,7 @@ import (
 	"path-api/internal/db"
 	"path-api/internal/utils"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -49,7 +50,7 @@ func (h *Handler) Register(c *echo.Context) error {
 	userID, err := h.db.CreatePengguna(c.Request().Context(), db.CreatePenggunaParams{
 		Nama:     req.Nama,
 		Email:    req.Email,
-		Password: string(hashedPassword),
+		Password: pgtype.Text{String: string(hashedPassword), Valid: true},
 	})
 	if err != nil {
 		log.Println("Error insert pengguna:", err)
@@ -97,7 +98,11 @@ func (h *Handler) Login(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username atau password salah")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(pengguna.Password), []byte(req.Password))
+	if !pengguna.Password.Valid {
+		return echo.NewHTTPError(http.StatusBadRequest, "akun ini terdaftar melalui OAuth, silakan login dengan provider OAuth")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(pengguna.Password.String), []byte(req.Password))
 	if err != nil {
 		log.Println("Error mengecek password:", err)
 		return echo.NewHTTPError(http.StatusBadRequest, "username atau password salah")

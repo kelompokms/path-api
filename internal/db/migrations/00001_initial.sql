@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE tipe_postingan (
+CREATE TABLE IF NOT EXISTS tipe_postingan (
 	id SERIAL PRIMARY KEY,
 	nama TEXT NOT NULL
 );
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS pengguna (
 	email TEXT NOT NULL UNIQUE,
 	phone TEXT,
 	profile_picture TEXT,
-	password TEXT NOT NULL,
+	password TEXT,
 	admin BOOLEAN NOT NULL DEFAULT FALSE,
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
 );
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS pengumpulan_tugas (
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE TABLE file (
+CREATE TABLE IF NOT EXISTS file (
     id SERIAL PRIMARY KEY,
     nama TEXT NOT NULL,
     path TEXT NOT NULL,
@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS kalender_akademik (
 	tanggal_selesai DATE NOT NULL,
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
 );
+
+
+CREATE TABLE IF NOT EXISTS oauth_accounts (
+	id SERIAL PRIMARY KEY,
+	pengguna_id INTEGER NOT NULL REFERENCES pengguna (id) ON DELETE CASCADE UNIQUE,
+	provider TEXT NOT NULL UNIQUE,
+	provider_user_id TEXT NOT NULL UNIQUE,
+	email TEXT NOT NULL,
+	dibuat TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_accounts_pengguna_id ON oauth_accounts (pengguna_id);
+
+
 -- +goose StatementBegin
 INSERT INTO tipe_postingan(nama) VALUES
 ('materi'),
@@ -78,11 +92,12 @@ INSERT INTO pengguna(nama, email, password, admin) VALUES
 -- +goose StatementEnd
 
 -- +goose Down
-DROP TABLE file;
-DROP TABLE pengumpulan_tugas;
-DROP TABLE postingan;
-DROP TABLE anggota_kelas;
-DROP TABLE kelas;
-DROP TABLE pengguna;
-DROP TABLE tipe_postingan;
-DROP TABLE kalender_akademik;
+DROP TABLE IF EXISTS oauth_accounts;
+DROP TABLE IF EXISTS file;
+DROP TABLE IF EXISTS pengumpulan_tugas;
+DROP TABLE IF EXISTS postingan;
+DROP TABLE IF EXISTS anggota_kelas;
+DROP TABLE IF EXISTS kelas;
+DROP TABLE IF EXISTS pengguna;
+DROP TABLE IF EXISTS tipe_postingan;
+DROP TABLE IF EXISTS kalender_akademik;

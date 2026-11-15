@@ -208,7 +208,7 @@ func TestResetPassword(t *testing.T) {
 
 		// GetPasswordPenggunaByID
 		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(
-			pgxmock.NewRows([]string{"password"}).AddRow(string(hashedPassword)),
+			pgxmock.NewRows([]string{"password"}).AddRow(pgtype.Text{String: string(hashedPassword), Valid: true}),
 		)
 		// UpdatePasswordPengguna (Exec)
 		mockPool.ExpectExec("UPDATE").WithArgs(int32(1), pgxmock.AnyArg()).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
