@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -26,10 +28,15 @@ import (
 
 const (
 	oauthStateCookieName          = "oauth_state"
-	oauthStateCookiePath          = "/auth/oauth"
+	oauthStateCookiePath          = "/"
 	oauthStateTTL                 = 10 * time.Minute
 	defaultMobileOAuthRedirectURI = "pathmobile://app/oauth/callback"
+	oauthSealedStatePrefix        = "v1."
+	minOAuthClientStateLen        = 16
+	maxOAuthClientStateLen        = 128
 )
+
+var errOAuthStateExpired = errors.New("state expired")
 
 // OAuthProviderConfig holds OAuth2 endpoint and credential configuration for a provider.
 type OAuthProviderConfig struct {
@@ -62,6 +69,15 @@ type oauthStatePayload struct {
 	CodeVerifier string `json:"code_verifier"`
 	RedirectURI  string `json:"redirect_uri,omitempty"`
 	ExpiresAt    int64  `json:"expires_at"`
+}
+
+type oauthQueryStatePayload struct {
+	Provider     string `json:"p"`
+	Nonce        string `json:"n"`
+	CodeVerifier string `json:"v"`
+	RedirectURI  string `json:"r,omitempty"`
+	ClientNonce  string `json:"c,omitempty"`
+	ExpiresAt    int64  `json:"e"`
 }
 
 func loadAllowedOAuthRedirects(frontendURL string) map[string]struct{} {
@@ -122,6 +138,7 @@ func (p OAuthProviderConfig) isConfigured() bool {
 //	@Produce		json
 //	@Param			provider		path		string	true	"OAuth provider (google, discord)"
 //	@Param			redirect_uri	query		string	false	"URL redirect tujuan yang diizinkan (mis. pathmobile://app/oauth/callback)"
+//	@Param			client_state	query		string	false	"Nonce state anti-CSRF dari aplikasi mobile (16-128 karakter URL-safe)"
 //	@Success		302				{string}	string	"Redirect ke halaman login OAuth provider"
 //	@Failure		400,500,503		{object}	utils.HTTPResponse
 //	@Router			/auth/oauth/{provider} [get]
@@ -144,7 +161,12 @@ func (h *Handler) OAuthLogin(c *echo.Context) error {
 		redirectURI = h.frontendURL
 	}
 
-	state, err := randomBase64URL(32)
+	clientState := strings.TrimSpace(c.QueryParam("client_state"))
+	if clientState != "" && !isValidOAuthClientState(clientState) {
+		return echo.NewHTTPError(http.StatusBadRequest, "client_state OAuth tidak valid")
+	}
+
+	stateNonce, err := randomBase64URL(16)
 	if err != nil {
 		log.Println("Error generating OAuth state:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses login OAuth")
@@ -156,18 +178,35 @@ func (h *Handler) OAuthLogin(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses login OAuth")
 	}
 
+	expiresAt := time.Now().Add(oauthStateTTL).Unix()
+	secret := utils.GetSecret()
+
 	signedCookieVal, err := encodeSignedState(oauthStatePayload{
 		Provider:     providerName,
-		State:        state,
+		State:        stateNonce,
 		CodeVerifier: codeVerifier,
 		RedirectURI:  redirectURI,
-		ExpiresAt:    time.Now().Add(oauthStateTTL).Unix(),
-	}, utils.GetSecret())
+		ExpiresAt:    expiresAt,
+	}, secret)
 	if err != nil {
 		log.Println("Error signing OAuth state:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses login OAuth")
 	}
 
+	sealedState, err := sealOAuthQueryState(oauthQueryStatePayload{
+		Provider:     providerName,
+		Nonce:        stateNonce,
+		CodeVerifier: codeVerifier,
+		RedirectURI:  redirectURI,
+		ClientNonce:  clientState,
+		ExpiresAt:    expiresAt,
+	}, secret)
+	if err != nil {
+		log.Println("Error sealing OAuth state:", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses login OAuth")
+	}
+
+	setNoCacheHeaders(c)
 	c.SetCookie(&http.Cookie{
 		Name:     oauthStateCookieName,
 		Value:    signedCookieVal,
@@ -178,7 +217,7 @@ func (h *Handler) OAuthLogin(c *echo.Context) error {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	authURL, err := buildAuthorizationURL(provider, state, pkceChallengeS256(codeVerifier))
+	authURL, err := buildAuthorizationURL(provider, sealedState, pkceChallengeS256(codeVerifier))
 	if err != nil {
 		log.Println("Error building OAuth auth URL:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses login OAuth")
@@ -210,24 +249,55 @@ func (h *Handler) OAuthCallback(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "provider OAuth belum dikonfigurasi")
 	}
 
-	clearOAuthStateCookie(c)
+	setNoCacheHeaders(c)
 
 	stateQuery := c.QueryParam("state")
 	stateCookie, cookieErr := c.Cookie(oauthStateCookieName)
+	if cookieErr == nil {
+		clearOAuthStateCookie(c)
+	}
+
+	secret := utils.GetSecret()
+	var sealedPayload oauthQueryStatePayload
+	sealedErr := errors.New("unsealed state")
+	if strings.HasPrefix(stateQuery, oauthSealedStatePrefix) {
+		sealedPayload, sealedErr = unsealOAuthQueryState(stateQuery, secret)
+	}
+
 	var statePayload oauthStatePayload
+	var clientNonce string
 	var stateValid bool
+
 	if cookieErr == nil && stateQuery != "" {
-		if parsed, err := verifySignedState(stateCookie.Value, utils.GetSecret()); err == nil {
-			if parsed.Provider == providerName && hmac.Equal([]byte(parsed.State), []byte(stateQuery)) {
+		if parsed, err := verifySignedState(stateCookie.Value, secret); err == nil && parsed.Provider == providerName {
+			if sealedErr == nil && sealedPayload.Provider == providerName && hmac.Equal([]byte(parsed.State), []byte(sealedPayload.Nonce)) {
+				statePayload = parsed
+				clientNonce = sealedPayload.ClientNonce
+				stateValid = true
+			} else if !strings.HasPrefix(stateQuery, oauthSealedStatePrefix) && hmac.Equal([]byte(parsed.State), []byte(stateQuery)) {
 				statePayload = parsed
 				stateValid = true
 			}
+		}
+	} else if cookieErr != nil && sealedErr == nil && sealedPayload.Provider == providerName && sealedPayload.ClientNonce != "" && sealedPayload.RedirectURI != "" {
+		if _, allowed := h.allowedRedirects[sealedPayload.RedirectURI]; allowed {
+			log.Printf("OAuth callback missing %s cookie; using client_state fallback (provider=%s host=%s https=%t)",
+				oauthStateCookieName, providerName, c.Request().Host, isHTTPSRequest(c.Request()))
+			statePayload = oauthStatePayload{
+				Provider:     sealedPayload.Provider,
+				State:        sealedPayload.Nonce,
+				CodeVerifier: sealedPayload.CodeVerifier,
+				RedirectURI:  sealedPayload.RedirectURI,
+				ExpiresAt:    sealedPayload.ExpiresAt,
+			}
+			clientNonce = sealedPayload.ClientNonce
+			stateValid = true
 		}
 	}
 
 	if oauthErr := c.QueryParam("error"); oauthErr != "" {
 		if stateValid && statePayload.RedirectURI != "" {
-			return c.Redirect(http.StatusFound, buildOAuthRedirectURL(statePayload.RedirectURI, "error", oauthErr))
+			return c.Redirect(http.StatusFound, buildOAuthRedirectURL(statePayload.RedirectURI, "error", oauthErr, clientNonce))
 		}
 		return echo.NewHTTPError(http.StatusBadRequest, "otorisasi OAuth dibatalkan atau ditolak")
 	}
@@ -236,10 +306,17 @@ func (h *Handler) OAuthCallback(c *echo.Context) error {
 	if code == "" || stateQuery == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "parameter code dan state wajib diisi")
 	}
-	if cookieErr != nil {
+	if cookieErr != nil && !stateValid {
+		if errors.Is(sealedErr, errOAuthStateExpired) {
+			return echo.NewHTTPError(http.StatusBadRequest, "state OAuth tidak valid atau kedaluwarsa")
+		}
+		log.Printf("OAuth callback missing %s cookie (provider=%s host=%s https=%t has_state=%t err=%v)",
+			oauthStateCookieName, providerName, c.Request().Host, isHTTPSRequest(c.Request()), stateQuery != "", cookieErr)
 		return echo.NewHTTPError(http.StatusBadRequest, "state OAuth tidak ditemukan")
 	}
 	if !stateValid {
+		log.Printf("OAuth callback invalid state (provider=%s host=%s has_state=%t)",
+			providerName, c.Request().Host, stateQuery != "")
 		return echo.NewHTTPError(http.StatusBadRequest, "state OAuth tidak valid atau kedaluwarsa")
 	}
 
@@ -247,33 +324,33 @@ func (h *Handler) OAuthCallback(c *echo.Context) error {
 	accessToken, err := h.exchangeCode(ctx, provider, code, statePayload.CodeVerifier)
 	if err != nil {
 		log.Println("Error exchanging OAuth code:", err)
-		return oauthCallbackError(c, statePayload.RedirectURI, "token_exchange_failed", "gagal menukar authorization code OAuth")
+		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "token_exchange_failed", "gagal menukar authorization code OAuth")
 	}
 
 	userInfo, err := h.fetchUserInfo(ctx, provider, accessToken)
 	if err != nil {
 		log.Println("Error fetching OAuth user info:", err)
-		return oauthCallbackError(c, statePayload.RedirectURI, "userinfo_failed", "gagal mengambil profil pengguna OAuth")
+		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "userinfo_failed", "gagal mengambil profil pengguna OAuth")
 	}
 
 	if userInfo.ID == "" || userInfo.Email == "" || !userInfo.EmailVerified {
-		return oauthCallbackError(c, statePayload.RedirectURI, "email_unverified", "email OAuth belum terverifikasi atau tidak tersedia")
+		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "email_unverified", "email OAuth belum terverifikasi atau tidak tersedia")
 	}
 
 	userID, isAdmin, err := h.resolveOAuthUser(ctx, providerName, userInfo)
 	if err != nil {
 		log.Println("Error resolving OAuth user:", err)
-		return oauthCallbackError(c, statePayload.RedirectURI, "account_error", "gagal memproses akun OAuth")
+		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "account_error", "gagal memproses akun OAuth")
 	}
 
 	token, err := utils.NewToken(userID, isAdmin)
 	if err != nil {
 		log.Println("Error creating JWT token:", err)
-		return oauthCallbackError(c, statePayload.RedirectURI, "token_creation_failed", "gagal membuat token autentikasi")
+		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "token_creation_failed", "gagal membuat token autentikasi")
 	}
 
 	if statePayload.RedirectURI != "" {
-		return c.Redirect(http.StatusFound, buildOAuthRedirectURL(statePayload.RedirectURI, "token", token))
+		return c.Redirect(http.StatusFound, buildOAuthRedirectURL(statePayload.RedirectURI, "token", token, clientNonce))
 	}
 
 	return c.JSON(http.StatusOK, SuccessResponse{
@@ -281,24 +358,31 @@ func (h *Handler) OAuthCallback(c *echo.Context) error {
 	})
 }
 
-func oauthCallbackError(c *echo.Context, redirectURI, errCode, message string) error {
+func oauthCallbackError(c *echo.Context, redirectURI, clientNonce, errCode, message string) error {
 	if redirectURI != "" {
-		return c.Redirect(http.StatusFound, buildOAuthRedirectURL(redirectURI, "error", errCode))
+		return c.Redirect(http.StatusFound, buildOAuthRedirectURL(redirectURI, "error", errCode, clientNonce))
 	}
 	return echo.NewHTTPError(http.StatusBadRequest, message)
 }
 
-func buildOAuthRedirectURL(baseURL, key, value string) string {
+func buildOAuthRedirectURL(baseURL, key, value, clientNonce string) string {
+	params := url.Values{key: {value}}
+	if clientNonce != "" {
+		params.Set("state", clientNonce)
+	}
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return baseURL + "#" + url.Values{key: {value}}.Encode()
+		return baseURL + "#" + params.Encode()
 	}
 	if u.Scheme == "http" || u.Scheme == "https" {
-		u.Fragment = url.Values{key: {value}}.Encode()
+		u.Fragment = params.Encode()
 		return u.String()
 	}
 	q := u.Query()
 	q.Set(key, value)
+	if clientNonce != "" {
+		q.Set("state", clientNonce)
+	}
 	u.RawQuery = q.Encode()
 	return u.String()
 }
@@ -540,9 +624,88 @@ func verifySignedState(token, secret string) (oauthStatePayload, error) {
 	}
 
 	if time.Now().Unix() > payload.ExpiresAt {
-		return oauthStatePayload{}, errors.New("state expired")
+		return oauthStatePayload{}, errOAuthStateExpired
 	}
 
+	return payload, nil
+}
+
+func isValidOAuthClientState(v string) bool {
+	if len(v) < minOAuthClientStateLen || len(v) > maxOAuthClientStateLen {
+		return false
+	}
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		isUpper := c >= 'A' && c <= 'Z'
+		isLower := c >= 'a' && c <= 'z'
+		isDigit := c >= '0' && c <= '9'
+		isAllowedPunct := c == '-' || c == '_' || c == '.' || c == '~'
+		if !isUpper && !isLower && !isDigit && !isAllowedPunct {
+			return false
+		}
+	}
+	return true
+}
+
+func deriveOAuthAEADKey(secret string) []byte {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte("path-api:oauth-state-aead:v1"))
+	return mac.Sum(nil)
+}
+
+func sealOAuthQueryState(payload oauthQueryStatePayload, secret string) (string, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(deriveOAuthAEADKey(secret))
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	sealed := gcm.Seal(nonce, nonce, raw, []byte(oauthSealedStatePrefix))
+	return oauthSealedStatePrefix + base64.RawURLEncoding.EncodeToString(sealed), nil
+}
+
+func unsealOAuthQueryState(token, secret string) (oauthQueryStatePayload, error) {
+	encoded, ok := strings.CutPrefix(token, oauthSealedStatePrefix)
+	if !ok {
+		return oauthQueryStatePayload{}, errors.New("invalid state prefix")
+	}
+	sealed, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return oauthQueryStatePayload{}, err
+	}
+	block, err := aes.NewCipher(deriveOAuthAEADKey(secret))
+	if err != nil {
+		return oauthQueryStatePayload{}, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return oauthQueryStatePayload{}, err
+	}
+	nonceSize := gcm.NonceSize()
+	if len(sealed) <= nonceSize {
+		return oauthQueryStatePayload{}, errors.New("invalid sealed state length")
+	}
+	plaintext, err := gcm.Open(nil, sealed[:nonceSize], sealed[nonceSize:], []byte(oauthSealedStatePrefix))
+	if err != nil {
+		return oauthQueryStatePayload{}, err
+	}
+	var payload oauthQueryStatePayload
+	if err := json.Unmarshal(plaintext, &payload); err != nil {
+		return oauthQueryStatePayload{}, err
+	}
+	if time.Now().Unix() > payload.ExpiresAt {
+		return oauthQueryStatePayload{}, errOAuthStateExpired
+	}
 	return payload, nil
 }
 
@@ -550,6 +713,12 @@ func signHMAC(data, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(data))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func setNoCacheHeaders(c *echo.Context) {
+	h := c.Response().Header()
+	h.Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	h.Set("Pragma", "no-cache")
 }
 
 func clearOAuthStateCookie(c *echo.Context) {

@@ -92,6 +92,12 @@ const docTemplate = `{
                         "description": "URL redirect tujuan yang diizinkan (mis. pathmobile://app/oauth/callback)",
                         "name": "redirect_uri",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Nonce state anti-CSRF dari aplikasi mobile (16-128 karakter URL-safe)",
+                        "name": "client_state",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1591,7 +1597,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "api.patclass.app",
+	Host:             "api.pathclass.app",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "PATH API Documentation",

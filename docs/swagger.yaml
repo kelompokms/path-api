@@ -314,7 +314,7 @@ definitions:
       message:
         type: string
     type: object
-host: api.patclass.app
+host: api.pathclass.app
 info:
   contact: {}
   description: This is documentation for PATH API.
@@ -409,6 +409,10 @@ paths:
       - description: URL redirect tujuan yang diizinkan (mis. pathmobile://app/oauth/callback)
         in: query
         name: redirect_uri
+        type: string
+      - description: Nonce state anti-CSRF dari aplikasi mobile (16-128 karakter URL-safe)
+        in: query
+        name: client_state
         type: string
       produces:
       - application/json

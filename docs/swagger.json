@@ -10,7 +10,7 @@
         },
         "version": "1.0"
     },
-    "host": "api.patclass.app",
+    "host": "api.pathclass.app",
     "basePath": "/",
     "paths": {
         "/admin": {
@@ -85,6 +85,12 @@
                         "type": "string",
                         "description": "URL redirect tujuan yang diizinkan (mis. pathmobile://app/oauth/callback)",
                         "name": "redirect_uri",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Nonce state anti-CSRF dari aplikasi mobile (16-128 karakter URL-safe)",
+                        "name": "client_state",
                         "in": "query"
                     }
                 ],

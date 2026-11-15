@@ -27,7 +27,7 @@ import (
 //	@license.name	Apache 2.0
 //	@license.url	https://raw.githubusercontent.com/kelompokms/path-api/refs/heads/main/LICENSE
 
-// @host		api.patclass.app
+// @host		api.pathclass.app
 // @BasePath	/
 func main() {
 	ctx := context.Background()
