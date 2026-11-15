@@ -6,6 +6,12 @@ services:
             - HOST_PORT=${HOST_PORT}
             - DATABASE_URL=host=db user=${DOCKER_POSTGRES_USER} password=${DOCKER_POSTGRES_PASSWORD} dbname=${DOCKER_POSTGRES_DB}
             - SECRET=${SECRET}
+            - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+            - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+            - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL:-}
+            - OAUTH_FRONTEND_REDIRECT_URL=${OAUTH_FRONTEND_REDIRECT_URL:-}
+            - OAUTH_MOBILE_REDIRECT_URL=${OAUTH_MOBILE_REDIRECT_URL:-}
+            - OAUTH_ALLOWED_REDIRECT_URLS=${OAUTH_ALLOWED_REDIRECT_URLS:-}
         ports:
             - ${HOST_PORT}:3000
         entrypoint: /app/path-api
