@@ -71,14 +71,20 @@ CREATE TABLE IF NOT EXISTS kalender_akademik (
 
 CREATE TABLE IF NOT EXISTS oauth_accounts (
 	id SERIAL PRIMARY KEY,
-	pengguna_id INTEGER NOT NULL REFERENCES pengguna (id) ON DELETE CASCADE UNIQUE,
-	provider TEXT NOT NULL UNIQUE,
-	provider_user_id TEXT NOT NULL UNIQUE,
+	pengguna_id INTEGER NOT NULL REFERENCES pengguna (id) ON DELETE CASCADE,
+	provider TEXT NOT NULL,
+	provider_user_id TEXT NOT NULL,
 	email TEXT NOT NULL,
-	dibuat TIMESTAMP NOT NULL DEFAULT now()
+	dibuat TIMESTAMP NOT NULL DEFAULT now(),
+	UNIQUE (provider, provider_user_id),
+	UNIQUE (pengguna_id, provider)
 );
 
-CREATE INDEX IF NOT EXISTS idx_oauth_accounts_pengguna_id ON oauth_accounts (pengguna_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_accounts_provider_user_uidx
+	ON oauth_accounts (provider, provider_user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_accounts_pengguna_provider_uidx
+	ON oauth_accounts (pengguna_id, provider);
 
 
 -- +goose StatementBegin
@@ -92,6 +98,8 @@ INSERT INTO pengguna(nama, email, password, admin) VALUES
 -- +goose StatementEnd
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_oauth_accounts_pengguna_provider_uidx;
+DROP INDEX IF EXISTS idx_oauth_accounts_provider_user_uidx;
 DROP TABLE IF EXISTS oauth_accounts;
 DROP TABLE IF EXISTS file;
 DROP TABLE IF EXISTS pengumpulan_tugas;
