@@ -5,7 +5,7 @@ VALUES ($1, $2, $3, $4, $5);
 -- name: ListKelas :many
 SELECT kelas.* FROM anggota_kelas
 JOIN kelas ON kelas_id = kelas.id
-WHERE pengguna_id = $1 AND pengampu != NULL;
+WHERE pengguna_id = $1;
 
 -- name: ListKelasDiampu :many
 SELECT kelas.* FROM kelas

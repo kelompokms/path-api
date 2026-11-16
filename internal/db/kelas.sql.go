@@ -134,7 +134,7 @@ func (q *Queries) ListAnggotaKelas(ctx context.Context, kodeKelas string) (Anggo
 const listKelas = `-- name: ListKelas :many
 SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM anggota_kelas
 JOIN kelas ON kelas_id = kelas.id
-WHERE pengguna_id = $1 AND pengampu != NULL
+WHERE pengguna_id = $1
 `
 
 func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, error) {
