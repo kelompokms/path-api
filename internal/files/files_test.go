@@ -72,9 +72,9 @@ func newUploadContext(t *testing.T, e *echo.Echo, files ...uploadFile) (*echo.Co
 }
 
 func TestSaveProfilePicture(t *testing.T) {
-	oldRoot := uploadRoot
-	uploadRoot = t.TempDir()
-	defer func() { uploadRoot = oldRoot }()
+	oldRoot := UploadRoot
+	UploadRoot = t.TempDir()
+	defer func() { UploadRoot = oldRoot }()
 
 	t.Run("successful square png upload", func(t *testing.T) {
 		fh := makeFileHeader(t, "profile_picture", "avatar.png", makePNGBytes(t, 10, 10))
@@ -103,9 +103,9 @@ func TestSaveProfilePicture(t *testing.T) {
 }
 
 func TestUploadPostinganFiles(t *testing.T) {
-	oldRoot := uploadRoot
-	uploadRoot = t.TempDir()
-	defer func() { uploadRoot = oldRoot }()
+	oldRoot := UploadRoot
+	UploadRoot = t.TempDir()
+	defer func() { UploadRoot = oldRoot }()
 
 	e := echo.New()
 	e.Validator = utils.NewValidator()
@@ -130,7 +130,7 @@ func TestUploadPostinganFiles(t *testing.T) {
 		assert.Greater(t, f.Ukuran, int64(0))
 
 		rel := strings.TrimPrefix(f.Path, "/uploads/")
-		_, statErr := os.Stat(filepath.Join(uploadRoot, filepath.FromSlash(rel)))
+		_, statErr := os.Stat(filepath.Join(UploadRoot, filepath.FromSlash(rel)))
 		assert.NoError(t, statErr)
 	}
 }
@@ -156,9 +156,9 @@ func TestUploadPostinganFilesTooMany(t *testing.T) {
 }
 
 func TestUploadPostinganFilesTooLarge(t *testing.T) {
-	oldRoot := uploadRoot
-	uploadRoot = t.TempDir()
-	defer func() { uploadRoot = oldRoot }()
+	oldRoot := UploadRoot
+	UploadRoot = t.TempDir()
+	defer func() { UploadRoot = oldRoot }()
 
 	e := echo.New()
 	e.Validator = utils.NewValidator()
@@ -178,9 +178,9 @@ func TestUploadPostinganFilesTooLarge(t *testing.T) {
 }
 
 func TestUploadPostinganFilesRejectsUnsupportedType(t *testing.T) {
-	oldRoot := uploadRoot
-	uploadRoot = t.TempDir()
-	defer func() { uploadRoot = oldRoot }()
+	oldRoot := UploadRoot
+	UploadRoot = t.TempDir()
+	defer func() { UploadRoot = oldRoot }()
 
 	e := echo.New()
 	e.Validator = utils.NewValidator()

@@ -72,6 +72,8 @@ func main() {
 	adminHandler := admin.New(q)
 	adminHandler.Routes(protected)
 
+	e.Static("/uploads", files.UploadRoot)
+
 	port := utils.GetPort()
 	err = e.Start(port)
 }

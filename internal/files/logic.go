@@ -23,9 +23,6 @@ import (
 
 const publicUploadPrefix = "/uploads"
 
-// uploadRoot is a variable so tests can point uploads at a temporary directory.
-var uploadRoot = "uploads"
-
 func SaveProfilePicture(userID int32, fh *multipart.FileHeader) (string, error) {
 	if fh.Size == 0 {
 		return "", errors.New("file tidak ada")
@@ -66,7 +63,7 @@ func SaveProfilePicture(userID int32, fh *multipart.FileHeader) (string, error) 
 
 	// 3. Build destination path: {root}/uploads/pfp/YYYY/MM/DD/
 	now := time.Now()
-	relDir := filepath.Join(uploadRoot, "pfp",
+	relDir := filepath.Join(UploadRoot, "pfp",
 		now.Format("2006"), now.Format("01"), now.Format("02"))
 	if err := os.MkdirAll(relDir, 0o755); err != nil {
 		return "", fmt.Errorf("create upload dir: %w", err)
@@ -191,7 +188,7 @@ func savePostinganFile(fh *multipart.FileHeader) (UploadedPostinganFile, error) 
 	// Store under uploads/YYYY/MM/DD/<random>.<ext>.
 	now := time.Now()
 	datePath := now.Format("2006/01/02")
-	diskDir := filepath.Join(uploadRoot, filepath.FromSlash(datePath))
+	diskDir := filepath.Join(UploadRoot, filepath.FromSlash(datePath))
 	if err := os.MkdirAll(diskDir, 0o755); err != nil {
 		return UploadedPostinganFile{}, fmt.Errorf("create upload dir: %w", err)
 	}
@@ -284,6 +281,6 @@ func sanitizeFilename(name string) string {
 func removeUploadedFiles(files []UploadedPostinganFile) {
 	for _, f := range files {
 		rel := strings.TrimPrefix(f.Path, publicUploadPrefix+"/")
-		_ = os.Remove(filepath.Join(uploadRoot, filepath.FromSlash(rel)))
+		_ = os.Remove(filepath.Join(UploadRoot, filepath.FromSlash(rel)))
 	}
 }

@@ -18,6 +18,8 @@ type Handler struct {
 	db *db.Queries
 }
 
+var UploadRoot = "uploads"
+
 func New(db *db.Queries) *Handler {
 	return &Handler{db}
 }
