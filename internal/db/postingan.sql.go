@@ -11,6 +11,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createPengumpulanTugas = `-- name: CreatePengumpulanTugas :one
+INSERT INTO pengumpulan_tugas (postingan_id, pengguna_id, lampiran)
+VALUES ($1, $2, $3)
+RETURNING id, postingan_id, pengguna_id, lampiran, dibuat
+`
+
+type CreatePengumpulanTugasParams struct {
+	PostinganID int32    `json:"postingan_id"`
+	PenggunaID  int32    `json:"pengguna_id"`
+	Lampiran    []string `json:"lampiran"`
+}
+
+func (q *Queries) CreatePengumpulanTugas(ctx context.Context, arg CreatePengumpulanTugasParams) (PengumpulanTuga, error) {
+	row := q.db.QueryRow(ctx, createPengumpulanTugas, arg.PostinganID, arg.PenggunaID, arg.Lampiran)
+	var i PengumpulanTuga
+	err := row.Scan(
+		&i.ID,
+		&i.PostinganID,
+		&i.PenggunaID,
+		&i.Lampiran,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
 const createPostingan = `-- name: CreatePostingan :one
 INSERT INTO postingan (judul, deskripsi, lampiran, tipe_id, pengguna_id, kelas_id)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -35,6 +60,96 @@ func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams
 		arg.PenggunaID,
 		arg.KelasID,
 	)
+	var i Postingan
+	err := row.Scan(
+		&i.ID,
+		&i.Judul,
+		&i.Deskripsi,
+		&i.Lampiran,
+		&i.PenggunaID,
+		&i.KelasID,
+		&i.TipeID,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
+const deletePengumpulanTugas = `-- name: DeletePengumpulanTugas :many
+DELETE FROM pengumpulan_tugas
+WHERE postingan_id = $1 AND pengguna_id = $2
+RETURNING id, postingan_id, pengguna_id, lampiran, dibuat
+`
+
+type DeletePengumpulanTugasParams struct {
+	PostinganID int32 `json:"postingan_id"`
+	PenggunaID  int32 `json:"pengguna_id"`
+}
+
+func (q *Queries) DeletePengumpulanTugas(ctx context.Context, arg DeletePengumpulanTugasParams) ([]PengumpulanTuga, error) {
+	rows, err := q.db.Query(ctx, deletePengumpulanTugas, arg.PostinganID, arg.PenggunaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PengumpulanTuga
+	for rows.Next() {
+		var i PengumpulanTuga
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostinganID,
+			&i.PenggunaID,
+			&i.Lampiran,
+			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPengumpulanTugas = `-- name: GetPengumpulanTugas :one
+SELECT id, postingan_id, pengguna_id, lampiran, dibuat
+FROM pengumpulan_tugas
+WHERE postingan_id = $1 AND pengguna_id = $2
+ORDER BY id DESC
+LIMIT 1
+`
+
+type GetPengumpulanTugasParams struct {
+	PostinganID int32 `json:"postingan_id"`
+	PenggunaID  int32 `json:"pengguna_id"`
+}
+
+func (q *Queries) GetPengumpulanTugas(ctx context.Context, arg GetPengumpulanTugasParams) (PengumpulanTuga, error) {
+	row := q.db.QueryRow(ctx, getPengumpulanTugas, arg.PostinganID, arg.PenggunaID)
+	var i PengumpulanTuga
+	err := row.Scan(
+		&i.ID,
+		&i.PostinganID,
+		&i.PenggunaID,
+		&i.Lampiran,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
+const getPostinganByID = `-- name: GetPostinganByID :one
+SELECT id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat
+FROM postingan
+WHERE id = $1 AND kelas_id = $2
+`
+
+type GetPostinganByIDParams struct {
+	ID      int32 `json:"id"`
+	KelasID int32 `json:"kelas_id"`
+}
+
+func (q *Queries) GetPostinganByID(ctx context.Context, arg GetPostinganByIDParams) (Postingan, error) {
+	row := q.db.QueryRow(ctx, getPostinganByID, arg.ID, arg.KelasID)
 	var i Postingan
 	err := row.Scan(
 		&i.ID,
@@ -124,6 +239,32 @@ func (q *Queries) ListTipePostingan(ctx context.Context) ([]TipePostingan, error
 		return nil, err
 	}
 	return items, nil
+}
+
+const updatePengumpulanTugas = `-- name: UpdatePengumpulanTugas :one
+UPDATE pengumpulan_tugas
+SET lampiran = $3, dibuat = now()
+WHERE id = $1 AND pengguna_id = $2
+RETURNING id, postingan_id, pengguna_id, lampiran, dibuat
+`
+
+type UpdatePengumpulanTugasParams struct {
+	ID         int32    `json:"id"`
+	PenggunaID int32    `json:"pengguna_id"`
+	Lampiran   []string `json:"lampiran"`
+}
+
+func (q *Queries) UpdatePengumpulanTugas(ctx context.Context, arg UpdatePengumpulanTugasParams) (PengumpulanTuga, error) {
+	row := q.db.QueryRow(ctx, updatePengumpulanTugas, arg.ID, arg.PenggunaID, arg.Lampiran)
+	var i PengumpulanTuga
+	err := row.Scan(
+		&i.ID,
+		&i.PostinganID,
+		&i.PenggunaID,
+		&i.Lampiran,
+		&i.Dibuat,
+	)
+	return i, err
 }
 
 const updatePostingan = `-- name: UpdatePostingan :one

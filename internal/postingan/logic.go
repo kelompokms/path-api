@@ -10,13 +10,17 @@ import (
 	"path-api/internal/utils"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 )
 
-const maxLampiran = 5
+const (
+	maxLampiran = 5
+	tipeTugasID = 1
+)
 
 // uploadPathPattern matches the paths produced by files.SavePostinganFiles:
 // /uploads/YYYY/MM/DD/<32 hex chars>.<ext>
@@ -81,7 +85,7 @@ func (h *Handler) authorizeGuruKelas(c *echo.Context, kodeKelas, forbiddenMsg st
 //	@Accept			json
 //	@Produce		json
 //	@Param			kode_kelas			path		string					true	"Kode Kelas"
-//	@Param			request				body		CreatePostinganPayload	true	"Create Postingan Request Payload"
+//	@Param			request				body		CreatePostinganRequest	true	"Create Postingan Request Payload"
 //	@Success		201					{object}	PostinganResponse
 //	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/posts [post]
@@ -225,7 +229,7 @@ func (h *Handler) List(c *echo.Context) error {
 //	@Produce		json
 //	@Param			kode_kelas			path		string					true	"Kode Kelas"
 //	@Param			postinganID			path		int						true	"Postingan ID"
-//	@Param			request				body		EditPostinganPayload	true	"Edit Postingan Request Payload"
+//	@Param			request				body		EditPostinganRequest	true	"Edit Postingan Request Payload"
 //	@Success		200					{object}	PostinganResponse
 //	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/postingan/{postinganID} [patch]
@@ -304,6 +308,257 @@ func (h *Handler) ListTipe(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tipe)
+}
+
+func toPengumpulanResponse(row db.PengumpulanTuga) PengumpulanResponse {
+	lampiran := row.Lampiran
+	if lampiran == nil {
+		lampiran = []string{}
+	}
+	var dibuat *time.Time
+	if row.Dibuat.Valid {
+		t := row.Dibuat.Time
+		dibuat = &t
+	}
+	return PengumpulanResponse{
+		ID:          row.ID,
+		PostinganID: row.PostinganID,
+		PenggunaID:  row.PenggunaID,
+		Submitted:   true,
+		Lampiran:    lampiran,
+		Dibuat:      dibuat,
+	}
+}
+
+func (h *Handler) authorizeMuridTugas(c *echo.Context, kodeKelas string, postinganID int32) (int32, error) {
+	ctx := c.Request().Context()
+
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return 0, echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	kelasID, err := h.db.GetKelasID(ctx, kodeKelas)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
+	}
+
+	isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
+		KodeKelas:  kodeKelas,
+		PenggunaID: claims.UserID,
+	})
+	if err != nil {
+		log.Println(err)
+		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+	}
+	if !isMember {
+		return 0, echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+	}
+
+	isGuru, err := h.db.IsGuruKelas(ctx, db.IsGuruKelasParams{
+		PenggunaID: claims.UserID,
+		KelasID:    kelasID,
+	})
+	if err != nil {
+		log.Println(err)
+		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
+	}
+	if isGuru {
+		return 0, echo.NewHTTPError(http.StatusForbidden, "Hanya murid yang dapat mengelola pengumpulan tugas")
+	}
+
+	post, err := h.db.GetPostinganByID(ctx, db.GetPostinganByIDParams{
+		ID:      postinganID,
+		KelasID: kelasID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, echo.NewHTTPError(http.StatusNotFound, "Postingan tidak ditemukan")
+		}
+		log.Println(err)
+		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa postingan")
+	}
+	if post.TipeID != tipeTugasID {
+		return 0, echo.NewHTTPError(http.StatusBadRequest, "Pengumpulan hanya berlaku untuk postingan tugas")
+	}
+
+	return claims.UserID, nil
+}
+
+// GetPengumpulan godoc
+//
+//	@Summary		Get Pengumpulan Tugas Murid
+//	@Description	Mendapatkan status dan lampiran pengumpulan tugas milik murid yang sedang login
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Param			postinganID			path		int		true	"Postingan ID"
+//	@Success		200					{object}	PengumpulanResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan [get]
+func (h *Handler) GetPengumpulan(c *echo.Context) error {
+	req := new(PengumpulanPathRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	userID, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
+	if err != nil {
+		return err
+	}
+
+	row, err := h.db.GetPengumpulanTugas(c.Request().Context(), db.GetPengumpulanTugasParams{
+		PostinganID: req.PostinganID,
+		PenggunaID:  userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return c.JSON(http.StatusOK, PengumpulanResponse{
+				PostinganID: req.PostinganID,
+				PenggunaID:  userID,
+				Submitted:   false,
+				Lampiran:    []string{},
+			})
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memuat pengumpulan tugas")
+	}
+
+	return c.JSON(http.StatusOK, toPengumpulanResponse(row))
+}
+
+// SubmitPengumpulan godoc
+//
+//	@Summary		Kumpulkan Tugas
+//	@Description	Mengumpulkan atau memperbarui pengumpulan tugas murid (lampiran kosong untuk tandai selesai)
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string						true	"Kode Kelas"
+//	@Param			postinganID			path		int							true	"Postingan ID"
+//	@Param			request				body		SubmitPengumpulanRequest	true	"Submit Pengumpulan Request Payload"
+//	@Success		200					{object}	PengumpulanResponse
+//	@Success		201					{object}	PengumpulanResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan [post]
+func (h *Handler) SubmitPengumpulan(c *echo.Context) error {
+	req := new(SubmitPengumpulanRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	userID, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
+	if err != nil {
+		return err
+	}
+
+	lampiran, err := normalizeLampiran(req.Lampiran)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if lampiran == nil {
+		lampiran = []string{}
+	}
+
+	ctx := c.Request().Context()
+	existing, err := h.db.GetPengumpulanTugas(ctx, db.GetPengumpulanTugasParams{
+		PostinganID: req.PostinganID,
+		PenggunaID:  userID,
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa pengumpulan tugas")
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		created, err := h.db.CreatePengumpulanTugas(ctx, db.CreatePengumpulanTugasParams{
+			PostinganID: req.PostinganID,
+			PenggunaID:  userID,
+			Lampiran:    lampiran,
+		})
+		if err != nil {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengumpulkan tugas")
+		}
+		return c.JSON(http.StatusCreated, toPengumpulanResponse(created))
+	}
+
+	updated, err := h.db.UpdatePengumpulanTugas(ctx, db.UpdatePengumpulanTugasParams{
+		ID:         existing.ID,
+		PenggunaID: userID,
+		Lampiran:   lampiran,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui pengumpulan tugas")
+	}
+	return c.JSON(http.StatusOK, toPengumpulanResponse(updated))
+}
+
+// TarikPengumpulan godoc
+//
+//	@Summary		Tarik Pengumpulan Tugas
+//	@Description	Menarik kembali pengumpulan tugas yang telah diserahkan oleh murid
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Param			postinganID			path		int		true	"Postingan ID"
+//	@Success		200					{object}	TarikPengumpulanResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan [delete]
+func (h *Handler) TarikPengumpulan(c *echo.Context) error {
+	req := new(PengumpulanPathRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	userID, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
+	if err != nil {
+		return err
+	}
+
+	deleted, err := h.db.DeletePengumpulanTugas(c.Request().Context(), db.DeletePengumpulanTugasParams{
+		PostinganID: req.PostinganID,
+		PenggunaID:  userID,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menarik pengumpulan tugas")
+	}
+	if len(deleted) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "Pengumpulan tugas tidak ditemukan")
+	}
+
+	latest := deleted[0]
+	for _, row := range deleted[1:] {
+		if row.ID > latest.ID {
+			latest = row
+		}
+	}
+	lampiran := latest.Lampiran
+	if lampiran == nil {
+		lampiran = []string{}
+	}
+
+	return c.JSON(http.StatusOK, TarikPengumpulanResponse{
+		Message:  "Pengumpulan tugas berhasil ditarik",
+		Lampiran: lampiran,
+	})
 }
 
 // normalizeLampiran accepts either an http(s) link or a path returned by

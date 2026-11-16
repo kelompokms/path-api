@@ -262,22 +262,17 @@ definitions:
     required:
     - phone
     type: object
-  postingan.CreatePostinganPayload:
+  postingan.CreatePostinganRequest:
     properties:
       deskripsi:
-        example: Pelajari materi berikut
         type: string
       judul:
-        example: Materi Bab 1
         type: string
       lampiran:
-        example:
-        - '["/uploads/2026/11/08/abc.pdf"]'
         items:
           type: string
         type: array
       tipe:
-        example: 1
         maximum: 2
         minimum: 1
         type: integer
@@ -285,28 +280,47 @@ definitions:
     - judul
     - tipe
     type: object
-  postingan.EditPostinganPayload:
+  postingan.EditPostinganRequest:
     properties:
       deskripsi:
-        example: Deskripsi Baru
         type: string
       judul:
-        example: Judul Baru
         type: string
       lampiran:
-        example:
-        - '["/uploads/2026/11/08/abc.pdf"]'
         items:
           type: string
         type: array
       tipe:
-        example: 1
         maximum: 2
         minimum: 1
         type: integer
     required:
     - judul
     - tipe
+    type: object
+  postingan.PengumpulanResponse:
+    properties:
+      dibuat:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      id:
+        example: 1
+        type: integer
+      lampiran:
+        example:
+        - '["/uploads/2026/11/08/abc.pdf"]'
+        items:
+          type: string
+        type: array
+      pengguna_id:
+        example: 2
+        type: integer
+      postingan_id:
+        example: 1
+        type: integer
+      submitted:
+        example: true
+        type: boolean
     type: object
   postingan.PostinganResponse:
     properties:
@@ -337,6 +351,25 @@ definitions:
       tipe_id:
         example: 1
         type: integer
+    type: object
+  postingan.SubmitPengumpulanRequest:
+    properties:
+      lampiran:
+        items:
+          type: string
+        type: array
+    type: object
+  postingan.TarikPengumpulanResponse:
+    properties:
+      lampiran:
+        example:
+        - '["/uploads/2026/11/08/abc.pdf"]'
+        items:
+          type: string
+        type: array
+      message:
+        example: Pengumpulan tugas berhasil ditarik
+        type: string
     type: object
   postingan.TipePostinganResponse:
     properties:
@@ -900,7 +933,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/postingan.EditPostinganPayload'
+          $ref: '#/definitions/postingan.EditPostinganRequest'
       produces:
       - application/json
       responses:
@@ -929,6 +962,154 @@ paths:
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
       summary: Edit Postingan
+      tags:
+      - Postingan
+  /kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan:
+    delete:
+      consumes:
+      - application/json
+      description: Menarik kembali pengumpulan tugas yang telah diserahkan oleh murid
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Postingan ID
+        in: path
+        name: postinganID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/postingan.TarikPengumpulanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Tarik Pengumpulan Tugas
+      tags:
+      - Postingan
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan status dan lampiran pengumpulan tugas milik murid yang
+        sedang login
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Postingan ID
+        in: path
+        name: postinganID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/postingan.PengumpulanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Get Pengumpulan Tugas Murid
+      tags:
+      - Postingan
+    post:
+      consumes:
+      - application/json
+      description: Mengumpulkan atau memperbarui pengumpulan tugas murid (lampiran
+        kosong untuk tandai selesai)
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Postingan ID
+        in: path
+        name: postinganID
+        required: true
+        type: integer
+      - description: Submit Pengumpulan Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/postingan.SubmitPengumpulanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/postingan.PengumpulanResponse'
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/postingan.PengumpulanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Kumpulkan Tugas
       tags:
       - Postingan
   /kelas/{kode_kelas}/posts:
@@ -995,7 +1176,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/postingan.CreatePostinganPayload'
+          $ref: '#/definitions/postingan.CreatePostinganRequest'
       produces:
       - application/json
       responses:

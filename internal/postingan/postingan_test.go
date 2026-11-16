@@ -512,3 +512,309 @@ func TestNormalizeLampiran(t *testing.T) {
 		})
 	}
 }
+
+func expectAuthorizeMuridTugas(mockPool pgxmock.PgxPoolIface, kodeKelas string, kelasID, userID, postID, tipeID int32) {
+	mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs(kodeKelas).WillReturnRows(
+		pgxmock.NewRows([]string{"id"}).AddRow(kelasID),
+	)
+	mockPool.ExpectQuery("SELECT EXISTS").WithArgs(kodeKelas, userID).WillReturnRows(
+		pgxmock.NewRows([]string{"exists"}).AddRow(true),
+	)
+	mockPool.ExpectQuery("SELECT COALESCE").WithArgs(userID, kelasID).WillReturnRows(
+		pgxmock.NewRows([]string{"is_guru"}).AddRow(false),
+	)
+	mockPool.ExpectQuery("SELECT id, judul, deskripsi, lampiran").WithArgs(postID, kelasID).WillReturnRows(
+		pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(postID, "Tugas 1", pgtype.Text{String: "Kerjakan", Valid: true}, []string(nil), int32(1), kelasID, tipeID, pgtype.Timestamp{Time: time.Now(), Valid: true}),
+	)
+}
+
+func TestGetPengumpulan(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	t.Run("returns unsubmitted state when no row exists", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/postingan/20/pengumpulan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+		mockPool.ExpectQuery("SELECT id, postingan_id, pengguna_id, lampiran, dibuat").
+			WithArgs(int32(20), int32(2)).
+			WillReturnError(pgx.ErrNoRows)
+
+		err := h.GetPengumpulan(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp PengumpulanResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.False(t, resp.Submitted)
+		assert.Equal(t, int32(20), resp.PostinganID)
+		assert.Equal(t, int32(2), resp.PenggunaID)
+		assert.Equal(t, []string{}, resp.Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("returns existing submission", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/postingan/20/pengumpulan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+		mockPool.ExpectQuery("SELECT id, postingan_id, pengguna_id, lampiran, dibuat").
+			WithArgs(int32(20), int32(2)).
+			WillReturnRows(
+				pgxmock.NewRows([]string{"id", "postingan_id", "pengguna_id", "lampiran", "dibuat"}).
+					AddRow(int32(5), int32(20), int32(2), []string{"https://example.com/jawaban"}, pgtype.Timestamp{Time: time.Now(), Valid: true}),
+			)
+
+		err := h.GetPengumpulan(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp PengumpulanResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.True(t, resp.Submitted)
+		assert.Equal(t, int32(5), resp.ID)
+		assert.Equal(t, []string{"https://example.com/jawaban"}, resp.Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestSubmitPengumpulan(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+	uploadPath := "/uploads/2026/11/16/" + strings.Repeat("a", 32) + ".pdf"
+
+	t.Run("creates new submission as murid", func(t *testing.T) {
+		jsonBody, _ := json.Marshal(SubmitPengumpulanRequest{
+			Lampiran: []string{uploadPath, "https://example.com/karya"},
+		})
+		req := httptest.NewRequest(http.MethodPost, "/kelas/ABC123/postingan/20/pengumpulan", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+		mockPool.ExpectQuery("SELECT id, postingan_id, pengguna_id, lampiran, dibuat").
+			WithArgs(int32(20), int32(2)).
+			WillReturnError(pgx.ErrNoRows)
+		mockPool.ExpectQuery("INSERT INTO pengumpulan_tugas").
+			WithArgs(int32(20), int32(2), []string{uploadPath, "https://example.com/karya"}).
+			WillReturnRows(
+				pgxmock.NewRows([]string{"id", "postingan_id", "pengguna_id", "lampiran", "dibuat"}).
+					AddRow(int32(9), int32(20), int32(2), []string{uploadPath, "https://example.com/karya"}, pgtype.Timestamp{Time: time.Now(), Valid: true}),
+			)
+
+		err := h.SubmitPengumpulan(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusCreated, rec.Code)
+
+		var resp PengumpulanResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.True(t, resp.Submitted)
+		assert.Equal(t, int32(9), resp.ID)
+		assert.Equal(t, []string{uploadPath, "https://example.com/karya"}, resp.Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("updates existing submission and allows empty lampiran for tandai selesai", func(t *testing.T) {
+		jsonBody, _ := json.Marshal(SubmitPengumpulanRequest{
+			Lampiran: []string{},
+		})
+		req := httptest.NewRequest(http.MethodPost, "/kelas/ABC123/postingan/20/pengumpulan", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+		mockPool.ExpectQuery("SELECT id, postingan_id, pengguna_id, lampiran, dibuat").
+			WithArgs(int32(20), int32(2)).
+			WillReturnRows(
+				pgxmock.NewRows([]string{"id", "postingan_id", "pengguna_id", "lampiran", "dibuat"}).
+					AddRow(int32(9), int32(20), int32(2), []string{uploadPath}, pgtype.Timestamp{Time: time.Now(), Valid: true}),
+			)
+		mockPool.ExpectQuery("UPDATE pengumpulan_tugas").
+			WithArgs(int32(9), int32(2), []string{}).
+			WillReturnRows(
+				pgxmock.NewRows([]string{"id", "postingan_id", "pengguna_id", "lampiran", "dibuat"}).
+					AddRow(int32(9), int32(20), int32(2), []string{}, pgtype.Timestamp{Time: time.Now(), Valid: true}),
+			)
+
+		err := h.SubmitPengumpulan(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp PengumpulanResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.True(t, resp.Submitted)
+		assert.Equal(t, []string{}, resp.Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("rejects invalid attachment path", func(t *testing.T) {
+		jsonBody, _ := json.Marshal(SubmitPengumpulanRequest{
+			Lampiran: []string{"javascript:alert(1)"},
+		})
+		req := httptest.NewRequest(http.MethodPost, "/kelas/ABC123/postingan/20/pengumpulan", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+
+		err := h.SubmitPengumpulan(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestTarikPengumpulan(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+	uploadPath := "/uploads/2026/11/16/" + strings.Repeat("b", 32) + ".pdf"
+
+	t.Run("successful withdraw deletes submission and returns lampiran", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/kelas/ABC123/postingan/20/pengumpulan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+		mockPool.ExpectQuery("DELETE FROM pengumpulan_tugas").
+			WithArgs(int32(20), int32(2)).
+			WillReturnRows(
+				pgxmock.NewRows([]string{"id", "postingan_id", "pengguna_id", "lampiran", "dibuat"}).
+					AddRow(int32(11), int32(20), int32(2), []string{uploadPath}, pgtype.Timestamp{Time: time.Now(), Valid: true}),
+			)
+
+		err := h.TarikPengumpulan(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp TarikPengumpulanResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.Equal(t, "Pengumpulan tugas berhasil ditarik", resp.Message)
+		assert.Equal(t, []string{uploadPath}, resp.Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("returns 404 when murid has no submission to withdraw", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/kelas/ABC123/postingan/20/pengumpulan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 20, 1)
+		mockPool.ExpectQuery("DELETE FROM pengumpulan_tugas").
+			WithArgs(int32(20), int32(2)).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "postingan_id", "pengguna_id", "lampiran", "dibuat"}))
+
+		err := h.TarikPengumpulan(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusNotFound, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("forbidden when guru tries to withdraw", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/kelas/ABC123/postingan/20/pengumpulan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "20"},
+		})
+		setAuthContext(c, 1, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		)
+		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(1)).WillReturnRows(
+			pgxmock.NewRows([]string{"exists"}).AddRow(true),
+		)
+		mockPool.ExpectQuery("SELECT COALESCE").WithArgs(int32(1), int32(1)).WillReturnRows(
+			pgxmock.NewRows([]string{"is_guru"}).AddRow(true),
+		)
+
+		err := h.TarikPengumpulan(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusForbidden, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("bad request when postingan is materi", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/kelas/ABC123/postingan/10/pengumpulan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "10"},
+		})
+		setAuthContext(c, 2, false)
+
+		expectAuthorizeMuridTugas(mockPool, "ABC123", 1, 2, 10, 2)
+
+		err := h.TarikPengumpulan(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}

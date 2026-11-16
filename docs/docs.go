@@ -764,7 +764,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/postingan.EditPostinganPayload"
+                            "$ref": "#/definitions/postingan.EditPostinganRequest"
                         }
                     }
                 ],
@@ -773,6 +773,224 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/postingan.PostinganResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan": {
+            "get": {
+                "description": "Mendapatkan status dan lampiran pengumpulan tugas milik murid yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Get Pengumpulan Tugas Murid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.PengumpulanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Mengumpulkan atau memperbarui pengumpulan tugas murid (lampiran kosong untuk tandai selesai)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Kumpulkan Tugas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Submit Pengumpulan Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/postingan.SubmitPengumpulanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.PengumpulanResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.PengumpulanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Menarik kembali pengumpulan tugas yang telah diserahkan oleh murid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Tarik Pengumpulan Tugas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.TarikPengumpulanResponse"
                         }
                     },
                     "400": {
@@ -904,7 +1122,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/postingan.CreatePostinganPayload"
+                            "$ref": "#/definitions/postingan.CreatePostinganRequest"
                         }
                     }
                 ],
@@ -1758,7 +1976,7 @@ const docTemplate = `{
                 }
             }
         },
-        "postingan.CreatePostinganPayload": {
+        "postingan.CreatePostinganRequest": {
             "type": "object",
             "required": [
                 "judul",
@@ -1766,31 +1984,25 @@ const docTemplate = `{
             ],
             "properties": {
                 "deskripsi": {
-                    "type": "string",
-                    "example": "Pelajari materi berikut"
+                    "type": "string"
                 },
                 "judul": {
-                    "type": "string",
-                    "example": "Materi Bab 1"
+                    "type": "string"
                 },
                 "lampiran": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    },
-                    "example": [
-                        "[\"/uploads/2026/11/08/abc.pdf\"]"
-                    ]
+                    }
                 },
                 "tipe": {
                     "type": "integer",
                     "maximum": 2,
-                    "minimum": 1,
-                    "example": 1
+                    "minimum": 1
                 }
             }
         },
-        "postingan.EditPostinganPayload": {
+        "postingan.EditPostinganRequest": {
             "type": "object",
             "required": [
                 "judul",
@@ -1798,12 +2010,34 @@ const docTemplate = `{
             ],
             "properties": {
                 "deskripsi": {
-                    "type": "string",
-                    "example": "Deskripsi Baru"
+                    "type": "string"
                 },
                 "judul": {
+                    "type": "string"
+                },
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tipe": {
+                    "type": "integer",
+                    "maximum": 2,
+                    "minimum": 1
+                }
+            }
+        },
+        "postingan.PengumpulanResponse": {
+            "type": "object",
+            "properties": {
+                "dibuat": {
                     "type": "string",
-                    "example": "Judul Baru"
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
                 },
                 "lampiran": {
                     "type": "array",
@@ -1814,11 +2048,17 @@ const docTemplate = `{
                         "[\"/uploads/2026/11/08/abc.pdf\"]"
                     ]
                 },
-                "tipe": {
+                "pengguna_id": {
                     "type": "integer",
-                    "maximum": 2,
-                    "minimum": 1,
+                    "example": 2
+                },
+                "postingan_id": {
+                    "type": "integer",
                     "example": 1
+                },
+                "submitted": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -1861,6 +2101,35 @@ const docTemplate = `{
                 "tipe_id": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "postingan.SubmitPengumpulanRequest": {
+            "type": "object",
+            "properties": {
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "postingan.TarikPengumpulanResponse": {
+            "type": "object",
+            "properties": {
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"/uploads/2026/11/08/abc.pdf\"]"
+                    ]
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Pengumpulan tugas berhasil ditarik"
                 }
             }
         },
