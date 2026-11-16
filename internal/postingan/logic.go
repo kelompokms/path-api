@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 )
@@ -21,17 +22,45 @@ const maxLampiran = 5
 // /uploads/YYYY/MM/DD/<32 hex chars>.<ext>
 var uploadPathPattern = regexp.MustCompile(`^uploads/\d{4}/\d{2}/\d{2}/[a-f0-9]{32}\.[a-z0-9]+$`)
 
+func (h *Handler) authorizeGuruKelas(c *echo.Context, kodeKelas, forbiddenMsg string) (int32, int32, error) {
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		log.Println(err)
+		return 0, 0, echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	kelasID, err := h.db.GetKelasID(c.Request().Context(), kodeKelas)
+	if err != nil {
+		log.Println(err)
+		return 0, 0, echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+	}
+
+	isGuru, err := h.db.IsGuruKelas(c.Request().Context(), db.IsGuruKelasParams{
+		PenggunaID: claims.UserID,
+		KelasID:    kelasID,
+	})
+	if err != nil {
+		log.Println(err)
+		return 0, 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
+	}
+	if !isGuru {
+		return 0, 0, echo.NewHTTPError(http.StatusForbidden, forbiddenMsg)
+	}
+
+	return claims.UserID, kelasID, nil
+}
+
 // Create godoc
 //
 //	@Summary		Buat Postingan
-//	@Description	Membuat postingan baru (materi atau tugas) pada kelas tertentu
+//	@Description	Membuat postingan baru (materi atau tugas) pada kelas tertentu (khusus guru kelas)
 //	@Tags			Postingan
 //	@Accept			json
 //	@Produce		json
-//	@Param			kode_kelas		path		string					true	"Kode Kelas"
-//	@Param			request			body		CreatePostinganPayload	true	"Create Postingan Request Payload"
-//	@Success		201				{object}	PostinganResponse
-//	@Failure		400,401,404,500	{object}	utils.HTTPResponse
+//	@Param			kode_kelas			path		string					true	"Kode Kelas"
+//	@Param			request				body		CreatePostinganPayload	true	"Create Postingan Request Payload"
+//	@Success		201					{object}	PostinganResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/posts [post]
 func (h *Handler) Create(c *echo.Context) error {
 	req := new(CreatePostinganRequest)
@@ -45,17 +74,9 @@ func (h *Handler) Create(c *echo.Context) error {
 		return utils.ValidationErrorHandler(c, err)
 	}
 
-	// Ambil ID pengguna dari token JWT (menggunakan utilitas yang sama seperti ListPostingan)
-	claims, err := utils.GetClaims(c)
+	userID, kelasID, err := h.authorizeGuruKelas(c, req.KodeKelas, "Hanya guru yang dapat membuat materi atau tugas")
 	if err != nil {
-		log.Println(err)
-		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
-	}
-
-	kelasID, err := h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
-	if err != nil {
-		log.Println(err)
-		return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		return err
 	}
 
 	var deskripsiParam pgtype.Text
@@ -74,7 +95,7 @@ func (h *Handler) Create(c *echo.Context) error {
 		Deskripsi:  deskripsiParam,
 		Lampiran:   lampiran,
 		TipeID:     req.TipeID,
-		PenggunaID: claims.UserID,
+		PenggunaID: userID,
 		KelasID:    kelasID,
 	})
 	if err != nil {
@@ -136,15 +157,15 @@ func (h *Handler) List(c *echo.Context) error {
 // Edit godoc
 //
 //	@Summary		Edit Postingan
-//	@Description	Memperbarui postingan yang ada pada kelas tertentu
+//	@Description	Memperbarui postingan yang ada pada kelas tertentu (khusus guru kelas)
 //	@Tags			Postingan
 //	@Accept			json
 //	@Produce		json
-//	@Param			kode_kelas	path		string					true	"Kode Kelas"
-//	@Param			postinganID	path		int						true	"Postingan ID"
-//	@Param			request		body		EditPostinganPayload	true	"Edit Postingan Request Payload"
-//	@Success		200			{object}	PostinganResponse
-//	@Failure		400,500		{object}	utils.HTTPResponse
+//	@Param			kode_kelas			path		string					true	"Kode Kelas"
+//	@Param			postinganID			path		int						true	"Postingan ID"
+//	@Param			request				body		EditPostinganPayload	true	"Edit Postingan Request Payload"
+//	@Success		200					{object}	PostinganResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/postingan/{postinganID} [patch]
 func (h *Handler) Edit(c *echo.Context) error {
 	req := new(EditPostinganRequest)
@@ -154,6 +175,11 @@ func (h *Handler) Edit(c *echo.Context) error {
 	}
 	if err := c.Validate(req); err != nil {
 		return utils.ValidationErrorHandler(c, err)
+	}
+
+	_, kelasID, err := h.authorizeGuruKelas(c, req.KodeKelas, "Hanya guru yang dapat mengubah postingan")
+	if err != nil {
+		return err
 	}
 
 	var deskripsiParam pgtype.Text
@@ -174,12 +200,16 @@ func (h *Handler) Edit(c *echo.Context) error {
 
 	updatedPost, err := h.db.UpdatePostingan(c.Request().Context(), db.UpdatePostinganParams{
 		ID:        req.PostinganID,
+		KelasID:   kelasID,
 		Judul:     req.Judul,
 		Deskripsi: deskripsiParam,
 		Lampiran:  lampiran,
 		TipeID:    req.TipeID,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Postingan tidak ditemukan")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui postingan")
 	}
 

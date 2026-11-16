@@ -285,7 +285,7 @@ const docTemplate = `{
         },
         "/kelas": {
             "get": {
-                "description": "List kelas menggunakan Bearer Token dan mengembalikan response list kelas",
+                "description": "List kelas menggunakan Bearer Token dan mengembalikan response list kelas beserta status role guru",
                 "consumes": [
                     "application/json"
                 ],
@@ -296,6 +296,14 @@ const docTemplate = `{
                     "Kelas"
                 ],
                 "summary": "List Kelas",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Filter berdasarkan role guru (true: pengajar, false: murid)",
+                        "name": "guru",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -393,6 +401,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Kode Kelas",
                         "name": "kode_kelas",
                         "in": "path",
                         "required": true
@@ -407,6 +416,71 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/kelas/{kode_kelas}/anggota": {
+            "get": {
+                "description": "Mendapatkan daftar seluruh anggota kelas (guru dan murid) berdasarkan kode kelas",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kelas"
+                ],
+                "summary": "List Anggota Kelas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/kelas.AnggotaKelasResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -520,7 +594,7 @@ const docTemplate = `{
         },
         "/kelas/{kode_kelas}/postingan/{postinganID}": {
             "patch": {
-                "description": "Memperbarui postingan yang ada pada kelas tertentu",
+                "description": "Memperbarui postingan yang ada pada kelas tertentu (khusus guru kelas)",
                 "consumes": [
                     "application/json"
                 ],
@@ -565,6 +639,24 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -644,7 +736,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Membuat postingan baru (materi atau tugas) pada kelas tertentu",
+                "description": "Membuat postingan baru (materi atau tugas) pada kelas tertentu (khusus guru kelas)",
                 "consumes": [
                     "application/json"
                 ],
@@ -688,6 +780,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -1289,6 +1387,39 @@ const docTemplate = `{
                 }
             }
         },
+        "kelas.AnggotaKelasResponse": {
+            "type": "object",
+            "properties": {
+                "dibuat": {
+                    "type": "string",
+                    "example": "2026-11-16T08:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "budi@example.com"
+                },
+                "guru": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "pengguna_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "profile_picture": {
+                    "type": "string",
+                    "example": "uploads/pfp/2026/11/10/user2_abc.jpg"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "murid"
+                }
+            }
+        },
         "kelas.CreateKelasRequest": {
             "type": "object",
             "required": [
@@ -1314,6 +1445,10 @@ const docTemplate = `{
                 "dibuat": {
                     "type": "string",
                     "example": "2006-01-02T15:04:05Z07:00"
+                },
+                "guru": {
+                    "type": "boolean",
+                    "example": true
                 },
                 "id": {
                     "type": "integer",

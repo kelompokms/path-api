@@ -1,11 +1,14 @@
 package kelas
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"path-api/internal/db"
 	"path-api/internal/utils"
+	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 )
@@ -13,10 +16,11 @@ import (
 // List godoc
 //
 //	@Summary		List Kelas
-//	@Description	List kelas menggunakan Bearer Token dan mengembalikan response list kelas
+//	@Description	List kelas menggunakan Bearer Token dan mengembalikan response list kelas beserta status role guru
 //	@Tags			Kelas
 //	@Accept			json
 //	@Produce		json
+//	@Param			guru		query		bool	false	"Filter berdasarkan role guru (true: pengajar, false: murid)"
 //	@Success		200			{object}	[]ListKelasResponse
 //	@Failure		400,401,500	{object}	utils.HTTPResponse
 //	@Router			/kelas [get]
@@ -26,19 +30,34 @@ func (h *Handler) List(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	kelas, err := h.db.ListKelas(c.Request().Context(), claims.UserID)
-	if err != nil {
-		log.Println(err)
-		return echo.NewHTTPError(http.StatusUnauthorized, "tidak ada kelas")
+	guruFilterParam := strings.TrimSpace(c.QueryParam("guru"))
+	var filterByGuru *bool
+	if guruFilterParam != "" {
+		switch strings.ToLower(guruFilterParam) {
+		case "true":
+			v := true
+			filterByGuru = &v
+		case "false":
+			v := false
+			filterByGuru = &v
+		default:
+			return echo.NewHTTPError(http.StatusBadRequest, "Parameter guru harus true atau false")
+		}
 	}
 
-	kelasDiampu, err := h.db.ListKelasDiampu(c.Request().Context(), pgtype.Int4{Int32: claims.UserID, Valid: true})
+	rows, err := h.db.ListKelas(c.Request().Context(), claims.UserID)
 	if err != nil {
 		log.Println(err)
-		return echo.NewHTTPError(http.StatusUnauthorized, "tidak ada kelas")
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar kelas")
 	}
 
-	kelas = append(kelas, kelasDiampu...)
+	kelas := make([]db.ListKelasRow, 0, len(rows))
+	for _, row := range rows {
+		if filterByGuru != nil && row.Guru != *filterByGuru {
+			continue
+		}
+		kelas = append(kelas, row)
+	}
 
 	return c.JSON(http.StatusOK, kelas)
 }
@@ -50,9 +69,9 @@ func (h *Handler) List(c *echo.Context) error {
 //	@Tags			Kelas
 //	@Accept			json
 //	@Produce		json
-//	@Param			request	path		KodeKelasRequest	true	"Kode Kelas Request Payload"
-//	@Success		200		{object}	ListKelasResponse
-//	@Failure		400,500	{object}	utils.HTTPResponse
+//	@Param			kode_kelas	path		string	true	"Kode Kelas"
+//	@Success		200			{object}	ListKelasResponse
+//	@Failure		400,500		{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas} [get]
 func (h *Handler) Get(c *echo.Context) error {
 	var req KodeKelasRequest
@@ -71,7 +90,102 @@ func (h *Handler) Get(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Kelas tidak ditemukan")
 	}
 
-	return c.JSON(http.StatusOK, kelas)
+	isGuru := false
+	if claims, err := utils.GetClaims(c); err == nil {
+		isGuru, err = h.db.IsGuruKelas(c.Request().Context(), db.IsGuruKelasParams{
+			PenggunaID: claims.UserID,
+			KelasID:    kelas.ID,
+		})
+		if err != nil {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
+		}
+	}
+
+	return c.JSON(http.StatusOK, DetailKelasResponse{
+		ID:          kelas.ID,
+		Nama:        kelas.Nama,
+		Tingkat:     kelas.Tingkat,
+		TahunAjaran: kelas.TahunAjaran,
+		KodeKelas:   kelas.KodeKelas,
+		Dibuat:      kelas.Dibuat,
+		Pengampu:    kelas.Pengampu,
+		Guru:        isGuru,
+	})
+}
+
+// ListAnggota godoc
+//
+//	@Summary		List Anggota Kelas
+//	@Description	Mendapatkan daftar seluruh anggota kelas (guru dan murid) berdasarkan kode kelas
+//	@Tags			Kelas
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Success		200					{object}	[]AnggotaKelasResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/anggota [get]
+func (h *Handler) ListAnggota(c *echo.Context) error {
+	var req KodeKelasRequest
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if err := c.Validate(&req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	_, err = h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
+	}
+
+	isMember, err := h.db.IsAnggotaKelas(c.Request().Context(), db.IsAnggotaKelasParams{
+		KodeKelas:  req.KodeKelas,
+		PenggunaID: claims.UserID,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+	}
+	if !isMember {
+		return echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+	}
+
+	rows, err := h.db.ListAnggotaKelas(c.Request().Context(), req.KodeKelas)
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar anggota kelas")
+	}
+
+	anggota := make([]AnggotaKelasResponse, 0, len(rows))
+	for _, row := range rows {
+		role := "murid"
+		if row.Guru {
+			role = "guru"
+		}
+		anggota = append(anggota, AnggotaKelasResponse{
+			PenggunaID:     row.PenggunaID,
+			Nama:           row.Nama,
+			Email:          row.Email,
+			ProfilePicture: row.ProfilePicture.String,
+			Guru:           row.Guru,
+			Role:           role,
+			Dibuat:         row.Dibuat.Time,
+		})
+	}
+
+	return c.JSON(http.StatusOK, anggota)
 }
 
 // Create godoc

@@ -14,8 +14,8 @@ RETURNING *;
 
 -- name: UpdatePostingan :one
 UPDATE postingan
-SET judul = $2, deskripsi = $3, lampiran = COALESCE($4, lampiran), tipe_id = $5
-WHERE id = $1
+SET judul = $3, deskripsi = $4, lampiran = COALESCE($5, lampiran), tipe_id = $6
+WHERE id = $1 AND kelas_id = $2
 RETURNING *;
 
 -- name: ListTipePostingan :many

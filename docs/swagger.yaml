@@ -102,6 +102,30 @@ definitions:
         example: 102400
         type: integer
     type: object
+  kelas.AnggotaKelasResponse:
+    properties:
+      dibuat:
+        example: "2026-11-16T08:00:00Z"
+        type: string
+      email:
+        example: budi@example.com
+        type: string
+      guru:
+        example: false
+        type: boolean
+      nama:
+        example: Budi Santoso
+        type: string
+      pengguna_id:
+        example: 2
+        type: integer
+      profile_picture:
+        example: uploads/pfp/2026/11/10/user2_abc.jpg
+        type: string
+      role:
+        example: murid
+        type: string
+    type: object
   kelas.CreateKelasRequest:
     properties:
       nama:
@@ -120,6 +144,9 @@ definitions:
       dibuat:
         example: 2006-01-02T15:04:05Z07:00
         type: string
+      guru:
+        example: true
+        type: boolean
       id:
         example: 2
         type: integer
@@ -547,7 +574,12 @@ paths:
       consumes:
       - application/json
       description: List kelas menggunakan Bearer Token dan mengembalikan response
-        list kelas
+        list kelas beserta status role guru
+      parameters:
+      - description: 'Filter berdasarkan role guru (true: pengajar, false: murid)'
+        in: query
+        name: guru
+        type: boolean
       produces:
       - application/json
       responses:
@@ -611,7 +643,8 @@ paths:
       - application/json
       description: Mendapatkan detail informasi kelas berdasarkan kode kelas
       parameters:
-      - in: path
+      - description: Kode Kelas
+        in: path
         name: kode_kelas
         required: true
         type: string
@@ -631,6 +664,50 @@ paths:
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
       summary: Get Detail Kelas
+      tags:
+      - Kelas
+  /kelas/{kode_kelas}/anggota:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan daftar seluruh anggota kelas (guru dan murid) berdasarkan
+        kode kelas
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/kelas.AnggotaKelasResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Anggota Kelas
       tags:
       - Kelas
   /kelas/{kode_kelas}/gabung:
@@ -701,7 +778,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Memperbarui postingan yang ada pada kelas tertentu
+      description: Memperbarui postingan yang ada pada kelas tertentu (khusus guru
+        kelas)
       parameters:
       - description: Kode Kelas
         in: path
@@ -728,6 +806,18 @@ paths:
             $ref: '#/definitions/postingan.PostinganResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
         "500":
@@ -786,6 +876,7 @@ paths:
       consumes:
       - application/json
       description: Membuat postingan baru (materi atau tugas) pada kelas tertentu
+        (khusus guru kelas)
       parameters:
       - description: Kode Kelas
         in: path
@@ -811,6 +902,10 @@ paths:
             $ref: '#/definitions/utils.HTTPResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
         "404":

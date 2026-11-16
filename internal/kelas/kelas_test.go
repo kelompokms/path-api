@@ -30,6 +30,8 @@ func setAuthContext(c *echo.Context, userID int32, admin bool) {
 }
 
 var kelasColumns = []string{"id", "nama", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}
+var listKelasColumns = []string{"id", "nama", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "guru"}
+var anggotaColumns = []string{"pengguna_id", "nama", "email", "profile_picture", "guru", "dibuat"}
 
 func TestListKelas(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
@@ -42,7 +44,7 @@ func TestListKelas(t *testing.T) {
 	e := echo.New()
 	e.Validator = utils.NewValidator()
 
-	t.Run("successful list", func(t *testing.T) {
+	t.Run("successful list returns both student and teacher classes with guru flag", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/kelas", nil)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
@@ -50,22 +52,101 @@ func TestListKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 
-		rowsJoined := pgxmock.NewRows(kelasColumns).
-			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true})
-		rowsDiampu := pgxmock.NewRows(kelasColumns).
-			AddRow(int32(2), "Fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true})
+		rows := pgxmock.NewRows(listKelasColumns).
+			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false).
+			AddRow(int32(2), "Fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true)
 
-		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rowsJoined)
-		mockPool.ExpectQuery("SELECT").WithArgs(pgtype.Int4{Int32: 1, Valid: true}).WillReturnRows(rowsDiampu)
+		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
 
 		err := h.List(c)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rec.Code)
 
-		var resp []db.Kela
+		var resp []db.ListKelasRow
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-		assert.Len(t, resp, 2)
+		require.Len(t, resp, 2)
+		assert.False(t, resp[0].Guru)
+		assert.True(t, resp[1].Guru)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("filters by guru=true", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas?guru=true", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, false)
+
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+		rows := pgxmock.NewRows(listKelasColumns).
+			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false).
+			AddRow(int32(2), "Fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true)
+
+		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
+
+		err := h.List(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []db.ListKelasRow
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.Len(t, resp, 1)
+		assert.Equal(t, "DEF456", resp[0].KodeKelas)
+		assert.True(t, resp[0].Guru)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("filters by guru=false", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas?guru=false", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, false)
+
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+		rows := pgxmock.NewRows(listKelasColumns).
+			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false).
+			AddRow(int32(2), "Fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true)
+
+		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
+
+		err := h.List(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []db.ListKelasRow
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.Len(t, resp, 1)
+		assert.Equal(t, "ABC123", resp[0].KodeKelas)
+		assert.False(t, resp[0].Guru)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("returns empty json array when no classes", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, false)
+
+		rows := pgxmock.NewRows(listKelasColumns)
+		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
+
+		err := h.List(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "[]\n", rec.Body.String())
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("invalid guru filter returns bad request", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas?guru=invalid", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, false)
+
+		err := h.List(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 	})
 
 	t.Run("unauthorized without claims", func(t *testing.T) {
@@ -92,25 +173,7 @@ func TestListKelas(t *testing.T) {
 		assert.Error(t, err)
 		httpErr, ok := err.(*echo.HTTPError)
 		require.True(t, ok)
-		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
-		assert.NoError(t, mockPool.ExpectationsWereMet())
-	})
-
-	t.Run("error on ListKelasDiampu query", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/kelas", nil)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		setAuthContext(c, 1, false)
-
-		rowsJoined := pgxmock.NewRows(kelasColumns)
-		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rowsJoined)
-		mockPool.ExpectQuery("SELECT").WithArgs(pgtype.Int4{Int32: 1, Valid: true}).WillReturnError(errors.New("db error"))
-
-		err := h.List(c)
-		assert.Error(t, err)
-		httpErr, ok := err.(*echo.HTTPError)
-		require.True(t, ok)
-		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
+		assert.Equal(t, http.StatusInternalServerError, httpErr.Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 }
@@ -146,6 +209,34 @@ func TestGetKelas(t *testing.T) {
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 
+	t.Run("successful get with claims includes guru status", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		setAuthContext(c, 1, false)
+
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+		rows := pgxmock.NewRows(kelasColumns).
+			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true})
+
+		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(rows)
+		mockPool.ExpectQuery("SELECT COALESCE").WithArgs(int32(1), int32(1)).WillReturnRows(
+			pgxmock.NewRows([]string{"is_guru"}).AddRow(true),
+		)
+
+		err := h.Get(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp DetailKelasResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.True(t, resp.Guru)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
 	t.Run("kelas not found", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/kelas/NOTFOUND", nil)
 		rec := httptest.NewRecorder()
@@ -162,6 +253,115 @@ func TestGetKelas(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestListAnggotaKelas(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	queries := db.New(mockPool)
+	h := New(queries)
+
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	t.Run("returns all members both guru and murid", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/anggota", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		setAuthContext(c, 2, false)
+
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		)
+		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(2)).WillReturnRows(
+			pgxmock.NewRows([]string{"is_anggota"}).AddRow(true),
+		)
+		rows := pgxmock.NewRows(anggotaColumns).
+			AddRow(int32(1), "Pak Guru", "guru@example.com", pgtype.Text{String: "", Valid: false}, true, now).
+			AddRow(int32(2), "Budi Murid", "budi@example.com", pgtype.Text{String: "pfp.jpg", Valid: true}, false, now)
+		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(rows)
+
+		err := h.ListAnggota(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []AnggotaKelasResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.Len(t, resp, 2)
+		assert.True(t, resp[0].Guru)
+		assert.Equal(t, "guru", resp[0].Role)
+		assert.Equal(t, "Pak Guru", resp[0].Nama)
+		assert.False(t, resp[1].Guru)
+		assert.Equal(t, "murid", resp[1].Role)
+		assert.Equal(t, "Budi Murid", resp[1].Nama)
+		assert.Equal(t, "pfp.jpg", resp[1].ProfilePicture)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("forbidden for non-member", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/anggota", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		setAuthContext(c, 99, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		)
+		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(99)).WillReturnRows(
+			pgxmock.NewRows([]string{"is_anggota"}).AddRow(false),
+		)
+
+		err := h.ListAnggota(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusForbidden, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("not found when kelas missing", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/MISSING/anggota", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "MISSING"},
+		})
+		setAuthContext(c, 2, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("MISSING").WillReturnError(pgx.ErrNoRows)
+
+		err := h.ListAnggota(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusNotFound, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("unauthorized without claims", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/anggota", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+
+		err := h.ListAnggota(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 	})
 }
 

@@ -35,6 +35,7 @@ type ListPostinganRequest struct {
 }
 
 type EditPostinganRequest struct {
+	KodeKelas   string    `param:"kode_kelas" json:"-" validate:"required"`
 	PostinganID int32     `param:"postinganID" json:"-" validate:"required"`
 	Judul       string    `json:"judul" validate:"required"`
 	Deskripsi   string    `json:"deskripsi"`

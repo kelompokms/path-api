@@ -62,11 +62,11 @@ func (q *Queries) GetPengguna(ctx context.Context, id int32) (GetPenggunaRow, er
 }
 
 const isGuru = `-- name: IsGuru :one
-SELECT TRUE FROM anggota_kelas WHERE id = $1 AND guru = TRUE
+SELECT TRUE FROM anggota_kelas WHERE pengguna_id = $1 AND guru = TRUE LIMIT 1
 `
 
-func (q *Queries) IsGuru(ctx context.Context, id int32) (bool, error) {
-	row := q.db.QueryRow(ctx, isGuru, id)
+func (q *Queries) IsGuru(ctx context.Context, penggunaID int32) (bool, error) {
+	row := q.db.QueryRow(ctx, isGuru, penggunaID)
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err

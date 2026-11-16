@@ -140,13 +140,14 @@ func (q *Queries) ListTipePostingan(ctx context.Context) ([]TipePostingan, error
 
 const updatePostingan = `-- name: UpdatePostingan :one
 UPDATE postingan
-SET judul = $2, deskripsi = $3, lampiran = COALESCE($4, lampiran), tipe_id = $5
-WHERE id = $1
+SET judul = $3, deskripsi = $4, lampiran = COALESCE($5, lampiran), tipe_id = $6
+WHERE id = $1 AND kelas_id = $2
 RETURNING id, judul, deskripsi, lampiran, mata_pelajaran, pengguna_id, kelas_id, tipe_id, dibuat
 `
 
 type UpdatePostinganParams struct {
 	ID        int32       `json:"id"`
+	KelasID   int32       `json:"kelas_id"`
 	Judul     string      `json:"judul"`
 	Deskripsi pgtype.Text `json:"deskripsi"`
 	Lampiran  []string    `json:"lampiran"`
@@ -156,6 +157,7 @@ type UpdatePostinganParams struct {
 func (q *Queries) UpdatePostingan(ctx context.Context, arg UpdatePostinganParams) (Postingan, error) {
 	row := q.db.QueryRow(ctx, updatePostingan,
 		arg.ID,
+		arg.KelasID,
 		arg.Judul,
 		arg.Deskripsi,
 		arg.Lampiran,

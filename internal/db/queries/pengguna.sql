@@ -18,7 +18,7 @@ JOIN kelas ON kelas_id = kelas.id
 WHERE guru = TRUE;
 
 -- name: IsGuru :one
-SELECT TRUE FROM anggota_kelas WHERE id = $1 AND guru = TRUE;
+SELECT TRUE FROM anggota_kelas WHERE pengguna_id = $1 AND guru = TRUE LIMIT 1;
 
 -- name: GetPengguna :one
 SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1;

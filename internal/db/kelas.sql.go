@@ -12,8 +12,15 @@ import (
 )
 
 const checkAnggotaKelas = `-- name: CheckAnggotaKelas :one
-SELECT 1 FROM anggota_kelas
-WHERE pengguna_id = $1 AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1)
+SELECT 1 FROM (
+    SELECT 1 FROM anggota_kelas ak
+    JOIN kelas k ON k.id = ak.kelas_id
+    WHERE ak.pengguna_id = $1 AND k.kode_kelas = $2
+    UNION ALL
+    SELECT 1 FROM kelas k2
+    WHERE k2.pengampu = $1 AND k2.kode_kelas = $2
+) AS membership
+LIMIT 1
 `
 
 type CheckAnggotaKelasParams struct {
@@ -29,8 +36,14 @@ func (q *Queries) CheckAnggotaKelas(ctx context.Context, arg CheckAnggotaKelasPa
 }
 
 const createKelas = `-- name: CreateKelas :exec
-INSERT INTO kelas (nama, tingkat, tahun_ajaran, pengampu, kode_kelas)
-VALUES ($1, $2, $3, $4, $5)
+WITH new_kelas AS (
+    INSERT INTO kelas (nama, tingkat, tahun_ajaran, pengampu, kode_kelas)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id, pengampu
+)
+INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
+SELECT pengampu, id, TRUE FROM new_kelas
+WHERE pengampu IS NOT NULL
 `
 
 type CreateKelasParams struct {
@@ -82,6 +95,49 @@ func (q *Queries) GetKelasID(ctx context.Context, kodeKelas string) (int32, erro
 	return id, err
 }
 
+const isAnggotaKelas = `-- name: IsAnggotaKelas :one
+SELECT EXISTS (
+    SELECT 1 FROM anggota_kelas ak
+    JOIN kelas k ON k.id = ak.kelas_id
+    WHERE k.kode_kelas = $1 AND ak.pengguna_id = $2
+    UNION
+    SELECT 1 FROM kelas k
+    WHERE k.kode_kelas = $1 AND k.pengampu = $2
+)::boolean AS is_anggota
+`
+
+type IsAnggotaKelasParams struct {
+	KodeKelas  string `json:"kode_kelas"`
+	PenggunaID int32  `json:"pengguna_id"`
+}
+
+func (q *Queries) IsAnggotaKelas(ctx context.Context, arg IsAnggotaKelasParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isAnggotaKelas, arg.KodeKelas, arg.PenggunaID)
+	var is_anggota bool
+	err := row.Scan(&is_anggota)
+	return is_anggota, err
+}
+
+const isGuruKelas = `-- name: IsGuruKelas :one
+SELECT COALESCE(
+    (SELECT BOOL_OR(ak.guru) FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2),
+    (SELECT k.pengampu = $1 FROM kelas k WHERE k.id = $2),
+    FALSE
+)::boolean AS is_guru
+`
+
+type IsGuruKelasParams struct {
+	PenggunaID int32 `json:"pengguna_id"`
+	KelasID    int32 `json:"kelas_id"`
+}
+
+func (q *Queries) IsGuruKelas(ctx context.Context, arg IsGuruKelasParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isGuruKelas, arg.PenggunaID, arg.KelasID)
+	var is_guru bool
+	err := row.Scan(&is_guru)
+	return is_guru, err
+}
+
 const joinKelas = `-- name: JoinKelas :exec
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
 VALUES ($1, $2, $3)
@@ -113,39 +169,114 @@ func (q *Queries) LeaveKelas(ctx context.Context, arg LeaveKelasParams) error {
 	return err
 }
 
-const listAnggotaKelas = `-- name: ListAnggotaKelas :one
-SELECT id, pengguna_id, kelas_id, guru, dibuat FROM anggota_kelas
-WHERE kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $1 LIMIT 1)
+const listAnggotaKelas = `-- name: ListAnggotaKelas :many
+SELECT
+    p.id AS pengguna_id,
+    p.nama,
+    p.email,
+    p.profile_picture,
+    ak.guru,
+    ak.dibuat
+FROM anggota_kelas ak
+JOIN pengguna p ON p.id = ak.pengguna_id
+JOIN kelas k ON k.id = ak.kelas_id
+WHERE k.kode_kelas = $1
+UNION
+SELECT
+    p.id AS pengguna_id,
+    p.nama,
+    p.email,
+    p.profile_picture,
+    TRUE AS guru,
+    k.dibuat
+FROM kelas k
+JOIN pengguna p ON p.id = k.pengampu
+WHERE k.kode_kelas = $1
+  AND NOT EXISTS (
+      SELECT 1 FROM anggota_kelas ak2
+      WHERE ak2.kelas_id = k.id AND ak2.pengguna_id = k.pengampu
+  )
+ORDER BY guru DESC, nama ASC
 `
 
-func (q *Queries) ListAnggotaKelas(ctx context.Context, kodeKelas string) (AnggotaKela, error) {
-	row := q.db.QueryRow(ctx, listAnggotaKelas, kodeKelas)
-	var i AnggotaKela
-	err := row.Scan(
-		&i.ID,
-		&i.PenggunaID,
-		&i.KelasID,
-		&i.Guru,
-		&i.Dibuat,
-	)
-	return i, err
+type ListAnggotaKelasRow struct {
+	PenggunaID     int32            `json:"pengguna_id"`
+	Nama           string           `json:"nama"`
+	Email          string           `json:"email"`
+	ProfilePicture pgtype.Text      `json:"profile_picture"`
+	Guru           bool             `json:"guru"`
+	Dibuat         pgtype.Timestamp `json:"dibuat"`
+}
+
+func (q *Queries) ListAnggotaKelas(ctx context.Context, kodeKelas string) ([]ListAnggotaKelasRow, error) {
+	rows, err := q.db.Query(ctx, listAnggotaKelas, kodeKelas)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAnggotaKelasRow
+	for rows.Next() {
+		var i ListAnggotaKelasRow
+		if err := rows.Scan(
+			&i.PenggunaID,
+			&i.Nama,
+			&i.Email,
+			&i.ProfilePicture,
+			&i.Guru,
+			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listKelas = `-- name: ListKelas :many
-SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM anggota_kelas
-JOIN kelas ON kelas_id = kelas.id
-WHERE pengguna_id = $1
+SELECT
+    k.id,
+    k.nama,
+    k.tingkat,
+    k.tahun_ajaran,
+    k.kode_kelas,
+    k.dibuat,
+    k.pengampu,
+    COALESCE(
+        BOOL_OR(ak.guru),
+        k.pengampu = $1::integer,
+        FALSE
+    )::boolean AS guru
+FROM kelas k
+LEFT JOIN anggota_kelas ak
+    ON ak.kelas_id = k.id AND ak.pengguna_id = $1::integer
+WHERE ak.pengguna_id = $1::integer OR k.pengampu = $1::integer
+GROUP BY k.id
+ORDER BY k.dibuat DESC, k.id DESC
 `
 
-func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, error) {
+type ListKelasRow struct {
+	ID          int32            `json:"id"`
+	Nama        string           `json:"nama"`
+	Tingkat     int16            `json:"tingkat"`
+	TahunAjaran string           `json:"tahun_ajaran"`
+	KodeKelas   string           `json:"kode_kelas"`
+	Dibuat      pgtype.Timestamp `json:"dibuat"`
+	Pengampu    pgtype.Int4      `json:"pengampu"`
+	Guru        bool             `json:"guru"`
+}
+
+func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasRow, error) {
 	rows, err := q.db.Query(ctx, listKelas, penggunaID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Kela
+	var items []ListKelasRow
 	for rows.Next() {
-		var i Kela
+		var i ListKelasRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Nama,
@@ -154,6 +285,7 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]Kela, erro
 			&i.KodeKelas,
 			&i.Dibuat,
 			&i.Pengampu,
+			&i.Guru,
 		); err != nil {
 			return nil, err
 		}
