@@ -24,6 +24,8 @@ services:
             - POSTGRES_PASSWORD=${DOCKER_POSTGRES_PASSWORD}
             - POSTGRES_DB=${DOCKER_POSTGRES_DB}
         restart: unless-stopped
+        ports:
+            - ${DB_HOST_PORT}:5432
         volumes:
             - db:/var/lib/postgresql/18/docker
 
