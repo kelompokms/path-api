@@ -36,6 +36,7 @@ type Kela struct {
 	ID          int32            `json:"id"`
 	Nama        string           `json:"nama"`
 	Tingkat     int16            `json:"tingkat"`
+	Deskripsi   string           `json:"deskripsi"`
 	TahunAjaran string           `json:"tahun_ajaran"`
 	KodeKelas   string           `json:"kode_kelas"`
 	Dibuat      pgtype.Timestamp `json:"dibuat"`

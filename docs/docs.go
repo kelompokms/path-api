@@ -427,6 +427,75 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "Memperbarui nama dan/atau deskripsi kelas (khusus guru kelas)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kelas"
+                ],
+                "summary": "Edit Kelas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Kelas Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/kelas.UpdateKelasPayload"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kelas.ListKelasResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
             }
         },
         "/kelas/{kode_kelas}/anggota": {
@@ -459,6 +528,75 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/kelas.AnggotaKelasResponse"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/kelas/{kode_kelas}/anggota/{pengguna_id}/guru": {
+            "patch": {
+                "description": "Mengubah role murid menjadi guru pada kelas tertentu (khusus guru kelas)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kelas"
+                ],
+                "summary": "Angkat Murid Menjadi Guru",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID Pengguna Murid",
+                        "name": "pengguna_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
                         }
                     },
                     "400": {
@@ -1428,6 +1566,9 @@ const docTemplate = `{
                 "tingkat"
             ],
             "properties": {
+                "deskripsi": {
+                    "type": "string"
+                },
                 "nama": {
                     "type": "string"
                 },
@@ -1442,6 +1583,10 @@ const docTemplate = `{
         "kelas.ListKelasResponse": {
             "type": "object",
             "properties": {
+                "deskripsi": {
+                    "type": "string",
+                    "example": "Belajar algoritma dan struktur data"
+                },
                 "dibuat": {
                     "type": "string",
                     "example": "2006-01-02T15:04:05Z07:00"
@@ -1473,6 +1618,19 @@ const docTemplate = `{
                 "tingkat": {
                     "type": "integer",
                     "example": 10
+                }
+            }
+        },
+        "kelas.UpdateKelasPayload": {
+            "type": "object",
+            "properties": {
+                "deskripsi": {
+                    "type": "string",
+                    "example": "Belajar algoritma dan struktur data"
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Pemrograman Dasar Lanjutan"
                 }
             }
         },

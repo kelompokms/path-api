@@ -128,6 +128,8 @@ definitions:
     type: object
   kelas.CreateKelasRequest:
     properties:
+      deskripsi:
+        type: string
       nama:
         type: string
       tahun_ajaran:
@@ -141,6 +143,9 @@ definitions:
     type: object
   kelas.ListKelasResponse:
     properties:
+      deskripsi:
+        example: Belajar algoritma dan struktur data
+        type: string
       dibuat:
         example: 2006-01-02T15:04:05Z07:00
         type: string
@@ -165,6 +170,15 @@ definitions:
       tingkat:
         example: 10
         type: integer
+    type: object
+  kelas.UpdateKelasPayload:
+    properties:
+      deskripsi:
+        example: Belajar algoritma dan struktur data
+        type: string
+      nama:
+        example: Pemrograman Dasar Lanjutan
+        type: string
     type: object
   pengguna.GetPenggunaFailure400Response:
     properties:
@@ -666,6 +680,52 @@ paths:
       summary: Get Detail Kelas
       tags:
       - Kelas
+    patch:
+      consumes:
+      - application/json
+      description: Memperbarui nama dan/atau deskripsi kelas (khusus guru kelas)
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Update Kelas Request Payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/kelas.UpdateKelasPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/kelas.ListKelasResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Edit Kelas
+      tags:
+      - Kelas
   /kelas/{kode_kelas}/anggota:
     get:
       consumes:
@@ -708,6 +768,53 @@ paths:
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
       summary: List Anggota Kelas
+      tags:
+      - Kelas
+  /kelas/{kode_kelas}/anggota/{pengguna_id}/guru:
+    patch:
+      consumes:
+      - application/json
+      description: Mengubah role murid menjadi guru pada kelas tertentu (khusus guru
+        kelas)
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: ID Pengguna Murid
+        in: path
+        name: pengguna_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Angkat Murid Menjadi Guru
       tags:
       - Kelas
   /kelas/{kode_kelas}/gabung:

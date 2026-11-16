@@ -1,7 +1,7 @@
 -- name: CreateKelas :exec
 WITH new_kelas AS (
-    INSERT INTO kelas (nama, tingkat, tahun_ajaran, pengampu, kode_kelas)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO kelas (nama, deskripsi, tingkat, tahun_ajaran, pengampu, kode_kelas)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id, pengampu
 )
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
@@ -12,6 +12,7 @@ WHERE pengampu IS NOT NULL;
 SELECT
     k.id,
     k.nama,
+    k.deskripsi,
     k.tingkat,
     k.tahun_ajaran,
     k.kode_kelas,
@@ -35,6 +36,14 @@ WHERE pengampu = $1;
 
 -- name: GetKelas :one
 SELECT * FROM kelas WHERE kode_kelas = $1;
+
+-- name: UpdateKelas :one
+UPDATE kelas
+SET
+    nama = COALESCE(sqlc.narg(nama), nama),
+    deskripsi = COALESCE(sqlc.narg(deskripsi), deskripsi)
+WHERE kode_kelas = $1
+RETURNING *;
 
 -- name: JoinKelas :exec
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)

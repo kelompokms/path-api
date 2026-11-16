@@ -17,13 +17,26 @@ func New(db *db.Queries) *Handler {
 
 type CreateKelasRequest struct {
 	Nama        string `json:"nama" validate:"required"`
+	Deskripsi   string `json:"deskripsi"`
 	Tingkat     int16  `json:"tingkat" validate:"required"`
 	TahunAjaran string `json:"tahun_ajaran" validate:"required"`
+}
+
+type UpdateKelasRequest struct {
+	KodeKelas string  `json:"-" param:"kode_kelas" validate:"required"`
+	Nama      *string `json:"nama"`
+	Deskripsi *string `json:"deskripsi"`
+}
+
+type UpdateKelasPayload struct {
+	Nama      *string `json:"nama" example:"Pemrograman Dasar Lanjutan"`
+	Deskripsi *string `json:"deskripsi" example:"Belajar algoritma dan struktur data"`
 }
 
 type ListKelasResponse struct {
 	ID          int32     `json:"id" example:"2"`
 	Nama        string    `json:"nama" example:"Pemrograman Dasar"`
+	Deskripsi   string    `json:"deskripsi" example:"Belajar algoritma dan struktur data"`
 	Tingkat     int16     `json:"tingkat" example:"10"`
 	TahunAjaran string    `json:"tahun_ajaran" example:"2026/2027"`
 	Pengampu    int32     `json:"pengampu" example:"1"`
@@ -35,6 +48,7 @@ type ListKelasResponse struct {
 type DetailKelasResponse struct {
 	ID          int32            `json:"id"`
 	Nama        string           `json:"nama"`
+	Deskripsi   string           `json:"deskripsi"`
 	Tingkat     int16            `json:"tingkat"`
 	TahunAjaran string           `json:"tahun_ajaran"`
 	KodeKelas   string           `json:"kode_kelas"`
@@ -55,6 +69,11 @@ type AnggotaKelasResponse struct {
 
 type KodeKelasRequest struct {
 	KodeKelas string `json:"kode_kelas" param:"kode_kelas" validate:"required"`
+}
+
+type PromoteGuruRequest struct {
+	KodeKelas  string `param:"kode_kelas" validate:"required"`
+	PenggunaID int32  `param:"pengguna_id" validate:"required,gt=0"`
 }
 
 type SuccessResponse struct {

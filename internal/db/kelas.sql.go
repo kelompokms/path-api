@@ -37,8 +37,8 @@ func (q *Queries) CheckAnggotaKelas(ctx context.Context, arg CheckAnggotaKelasPa
 
 const createKelas = `-- name: CreateKelas :exec
 WITH new_kelas AS (
-    INSERT INTO kelas (nama, tingkat, tahun_ajaran, pengampu, kode_kelas)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO kelas (nama, deskripsi, tingkat, tahun_ajaran, pengampu, kode_kelas)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id, pengampu
 )
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
@@ -48,6 +48,7 @@ WHERE pengampu IS NOT NULL
 
 type CreateKelasParams struct {
 	Nama        string      `json:"nama"`
+	Deskripsi   string      `json:"deskripsi"`
 	Tingkat     int16       `json:"tingkat"`
 	TahunAjaran string      `json:"tahun_ajaran"`
 	Pengampu    pgtype.Int4 `json:"pengampu"`
@@ -57,6 +58,7 @@ type CreateKelasParams struct {
 func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) error {
 	_, err := q.db.Exec(ctx, createKelas,
 		arg.Nama,
+		arg.Deskripsi,
 		arg.Tingkat,
 		arg.TahunAjaran,
 		arg.Pengampu,
@@ -66,7 +68,7 @@ func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) error 
 }
 
 const getKelas = `-- name: GetKelas :one
-SELECT id, nama, tingkat, tahun_ajaran, kode_kelas, dibuat, pengampu FROM kelas WHERE kode_kelas = $1
+SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu FROM kelas WHERE kode_kelas = $1
 `
 
 func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) {
@@ -76,6 +78,7 @@ func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) 
 		&i.ID,
 		&i.Nama,
 		&i.Tingkat,
+		&i.Deskripsi,
 		&i.TahunAjaran,
 		&i.KodeKelas,
 		&i.Dibuat,
@@ -239,6 +242,7 @@ const listKelas = `-- name: ListKelas :many
 SELECT
     k.id,
     k.nama,
+    k.deskripsi,
     k.tingkat,
     k.tahun_ajaran,
     k.kode_kelas,
@@ -260,6 +264,7 @@ ORDER BY k.dibuat DESC, k.id DESC
 type ListKelasRow struct {
 	ID          int32            `json:"id"`
 	Nama        string           `json:"nama"`
+	Deskripsi   string           `json:"deskripsi"`
 	Tingkat     int16            `json:"tingkat"`
 	TahunAjaran string           `json:"tahun_ajaran"`
 	KodeKelas   string           `json:"kode_kelas"`
@@ -280,6 +285,7 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasR
 		if err := rows.Scan(
 			&i.ID,
 			&i.Nama,
+			&i.Deskripsi,
 			&i.Tingkat,
 			&i.TahunAjaran,
 			&i.KodeKelas,
@@ -298,7 +304,7 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasR
 }
 
 const listKelasDiampu = `-- name: ListKelasDiampu :many
-SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM kelas
+SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.deskripsi, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM kelas
 WHERE pengampu = $1
 `
 
@@ -315,6 +321,7 @@ func (q *Queries) ListKelasDiampu(ctx context.Context, pengampu pgtype.Int4) ([]
 			&i.ID,
 			&i.Nama,
 			&i.Tingkat,
+			&i.Deskripsi,
 			&i.TahunAjaran,
 			&i.KodeKelas,
 			&i.Dibuat,
@@ -328,6 +335,37 @@ func (q *Queries) ListKelasDiampu(ctx context.Context, pengampu pgtype.Int4) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateKelas = `-- name: UpdateKelas :one
+UPDATE kelas
+SET
+    nama = COALESCE($2, nama),
+    deskripsi = COALESCE($3, deskripsi)
+WHERE kode_kelas = $1
+RETURNING id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu
+`
+
+type UpdateKelasParams struct {
+	KodeKelas string      `json:"kode_kelas"`
+	Nama      pgtype.Text `json:"nama"`
+	Deskripsi pgtype.Text `json:"deskripsi"`
+}
+
+func (q *Queries) UpdateKelas(ctx context.Context, arg UpdateKelasParams) (Kela, error) {
+	row := q.db.QueryRow(ctx, updateKelas, arg.KodeKelas, arg.Nama, arg.Deskripsi)
+	var i Kela
+	err := row.Scan(
+		&i.ID,
+		&i.Nama,
+		&i.Tingkat,
+		&i.Deskripsi,
+		&i.TahunAjaran,
+		&i.KodeKelas,
+		&i.Dibuat,
+		&i.Pengampu,
+	)
+	return i, err
 }
 
 const updateRoleKelas = `-- name: UpdateRoleKelas :exec

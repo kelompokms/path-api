@@ -105,6 +105,7 @@ func (h *Handler) Get(c *echo.Context) error {
 	return c.JSON(http.StatusOK, DetailKelasResponse{
 		ID:          kelas.ID,
 		Nama:        kelas.Nama,
+		Deskripsi:   kelas.Deskripsi,
 		Tingkat:     kelas.Tingkat,
 		TahunAjaran: kelas.TahunAjaran,
 		KodeKelas:   kelas.KodeKelas,
@@ -112,6 +113,168 @@ func (h *Handler) Get(c *echo.Context) error {
 		Pengampu:    kelas.Pengampu,
 		Guru:        isGuru,
 	})
+}
+
+func (h *Handler) authorizeGuruKelas(c *echo.Context, kodeKelas, forbiddenMsg string) (int32, int32, error) {
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return 0, 0, echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	kelasID, err := h.db.GetKelasID(c.Request().Context(), kodeKelas)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, 0, echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return 0, 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
+	}
+
+	isGuru, err := h.db.IsGuruKelas(c.Request().Context(), db.IsGuruKelasParams{
+		PenggunaID: claims.UserID,
+		KelasID:    kelasID,
+	})
+	if err != nil {
+		log.Println(err)
+		return 0, 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
+	}
+	if !isGuru {
+		return 0, 0, echo.NewHTTPError(http.StatusForbidden, forbiddenMsg)
+	}
+
+	return claims.UserID, kelasID, nil
+}
+
+// Update godoc
+//
+//	@Summary		Edit Kelas
+//	@Description	Memperbarui nama dan/atau deskripsi kelas (khusus guru kelas)
+//	@Tags			Kelas
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string				true	"Kode Kelas"
+//	@Param			request				body		UpdateKelasPayload	true	"Update Kelas Request Payload"
+//	@Success		200					{object}	ListKelasResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas} [patch]
+func (h *Handler) Update(c *echo.Context) error {
+	var req UpdateKelasRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(&req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	if _, _, err := h.authorizeGuruKelas(c, req.KodeKelas, "Hanya guru yang dapat mengubah informasi kelas"); err != nil {
+		return err
+	}
+
+	if req.Nama == nil && req.Deskripsi == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Minimal nama atau deskripsi harus diisi")
+	}
+
+	var namaParam pgtype.Text
+	if req.Nama != nil {
+		trimmed := strings.TrimSpace(*req.Nama)
+		if trimmed == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "Nama kelas tidak boleh kosong")
+		}
+		namaParam = pgtype.Text{String: trimmed, Valid: true}
+	}
+
+	var deskripsiParam pgtype.Text
+	if req.Deskripsi != nil {
+		deskripsiParam = pgtype.Text{String: strings.TrimSpace(*req.Deskripsi), Valid: true}
+	}
+
+	updated, err := h.db.UpdateKelas(c.Request().Context(), db.UpdateKelasParams{
+		KodeKelas: req.KodeKelas,
+		Nama:      namaParam,
+		Deskripsi: deskripsiParam,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui kelas")
+	}
+
+	return c.JSON(http.StatusOK, DetailKelasResponse{
+		ID:          updated.ID,
+		Nama:        updated.Nama,
+		Deskripsi:   updated.Deskripsi,
+		Tingkat:     updated.Tingkat,
+		TahunAjaran: updated.TahunAjaran,
+		KodeKelas:   updated.KodeKelas,
+		Dibuat:      updated.Dibuat,
+		Pengampu:    updated.Pengampu,
+		Guru:        true,
+	})
+}
+
+// PromoteGuru godoc
+//
+//	@Summary		Angkat Murid Menjadi Guru
+//	@Description	Mengubah role murid menjadi guru pada kelas tertentu (khusus guru kelas)
+//	@Tags			Kelas
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Param			pengguna_id			path		int		true	"ID Pengguna Murid"
+//	@Success		200					{object}	utils.HTTPResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/anggota/{pengguna_id}/guru [patch]
+func (h *Handler) PromoteGuru(c *echo.Context) error {
+	var req PromoteGuruRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(&req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	_, kelasID, err := h.authorizeGuruKelas(c, req.KodeKelas, "Hanya guru yang dapat mengangkat murid menjadi guru")
+	if err != nil {
+		return err
+	}
+
+	ctx := c.Request().Context()
+	isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
+		KodeKelas:  req.KodeKelas,
+		PenggunaID: req.PenggunaID,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+	}
+	if !isMember {
+		return echo.NewHTTPError(http.StatusNotFound, "Anggota tidak ditemukan di kelas ini")
+	}
+
+	targetIsGuru, err := h.db.IsGuruKelas(ctx, db.IsGuruKelasParams{
+		PenggunaID: req.PenggunaID,
+		KelasID:    kelasID,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role anggota")
+	}
+	if targetIsGuru {
+		return echo.NewHTTPError(http.StatusBadRequest, "Anggota tersebut sudah menjadi guru")
+	}
+
+	if err := h.db.UpdateRoleKelas(ctx, db.UpdateRoleKelasParams{
+		PenggunaID: req.PenggunaID,
+		KodeKelas:  req.KodeKelas,
+		Guru:       true,
+	}); err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengangkat murid menjadi guru")
+	}
+
+	return c.JSON(http.StatusOK, utils.HTTPResponse{Message: "Berhasil mengangkat murid menjadi guru"})
 }
 
 // ListAnggota godoc
@@ -221,7 +384,8 @@ func (h *Handler) Create(c *echo.Context) error {
 	kodeKelas := utils.GenerateHashCode()
 
 	err = h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
-		Nama:        req.Nama,
+		Nama:        strings.TrimSpace(req.Nama),
+		Deskripsi:   strings.TrimSpace(req.Deskripsi),
 		Tingkat:     req.Tingkat,
 		TahunAjaran: req.TahunAjaran,
 		Pengampu:    pgtype.Int4{Int32: claims.UserID, Valid: true},
