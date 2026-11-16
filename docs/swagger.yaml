@@ -331,9 +331,6 @@ definitions:
         items:
           type: string
         type: array
-      mata_pelajaran:
-        example: Matematika
-        type: string
       pengguna_id:
         example: 1
         type: integer
@@ -938,8 +935,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Mendapatkan daftar postingan pada kelas berdasarkan tipe dan mata
-        pelajaran
+      description: Mendapatkan daftar postingan pada kelas, opsional difilter berdasarkan
+        tipe postingan
       parameters:
       - description: Kode Kelas
         in: path
@@ -949,12 +946,7 @@ paths:
       - description: 'Tipe Postingan (1: Tugas, 2: Materi)'
         in: query
         name: tipe
-        required: true
         type: integer
-      - description: Mata Pelajaran
-        in: query
-        name: mapel
-        type: string
       produces:
       - application/json
       responses:
@@ -970,6 +962,14 @@ paths:
             $ref: '#/definitions/utils.HTTPResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
         "500":

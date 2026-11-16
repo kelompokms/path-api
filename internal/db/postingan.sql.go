@@ -12,19 +12,18 @@ import (
 )
 
 const createPostingan = `-- name: CreatePostingan :one
-INSERT INTO postingan (judul, deskripsi, lampiran, tipe_id, pengguna_id, kelas_id, mata_pelajaran)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, judul, deskripsi, lampiran, mata_pelajaran, pengguna_id, kelas_id, tipe_id, dibuat
+INSERT INTO postingan (judul, deskripsi, lampiran, tipe_id, pengguna_id, kelas_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat
 `
 
 type CreatePostinganParams struct {
-	Judul         string      `json:"judul"`
-	Deskripsi     pgtype.Text `json:"deskripsi"`
-	Lampiran      []string    `json:"lampiran"`
-	TipeID        int32       `json:"tipe_id"`
-	PenggunaID    int32       `json:"pengguna_id"`
-	KelasID       int32       `json:"kelas_id"`
-	MataPelajaran pgtype.Text `json:"mata_pelajaran"`
+	Judul      string      `json:"judul"`
+	Deskripsi  pgtype.Text `json:"deskripsi"`
+	Lampiran   []string    `json:"lampiran"`
+	TipeID     int32       `json:"tipe_id"`
+	PenggunaID int32       `json:"pengguna_id"`
+	KelasID    int32       `json:"kelas_id"`
 }
 
 func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams) (Postingan, error) {
@@ -35,7 +34,6 @@ func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams
 		arg.TipeID,
 		arg.PenggunaID,
 		arg.KelasID,
-		arg.MataPelajaran,
 	)
 	var i Postingan
 	err := row.Scan(
@@ -43,7 +41,6 @@ func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams
 		&i.Judul,
 		&i.Deskripsi,
 		&i.Lampiran,
-		&i.MataPelajaran,
 		&i.PenggunaID,
 		&i.KelasID,
 		&i.TipeID,
@@ -55,18 +52,14 @@ func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams
 const listPostingan = `-- name: ListPostingan :many
 SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe_id, p.pengguna_id, p.kelas_id, p.dibuat
 FROM postingan p
-JOIN kelas k ON p.kelas_id = k.id
-WHERE p.tipe_id = $1
-  AND p.pengguna_id = $2
-  AND p.kelas_id = $3
-  AND p.mata_pelajaran = $4
+WHERE p.kelas_id = $1
+  AND ($2::integer IS NULL OR p.tipe_id = $2)
+ORDER BY p.dibuat DESC, p.id DESC
 `
 
 type ListPostinganParams struct {
-	TipeID        int32       `json:"tipe_id"`
-	PenggunaID    int32       `json:"pengguna_id"`
-	KelasID       int32       `json:"kelas_id"`
-	MataPelajaran pgtype.Text `json:"mata_pelajaran"`
+	KelasID int32       `json:"kelas_id"`
+	TipeID  pgtype.Int4 `json:"tipe_id"`
 }
 
 type ListPostinganRow struct {
@@ -81,12 +74,7 @@ type ListPostinganRow struct {
 }
 
 func (q *Queries) ListPostingan(ctx context.Context, arg ListPostinganParams) ([]ListPostinganRow, error) {
-	rows, err := q.db.Query(ctx, listPostingan,
-		arg.TipeID,
-		arg.PenggunaID,
-		arg.KelasID,
-		arg.MataPelajaran,
-	)
+	rows, err := q.db.Query(ctx, listPostingan, arg.KelasID, arg.TipeID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +130,7 @@ const updatePostingan = `-- name: UpdatePostingan :one
 UPDATE postingan
 SET judul = $3, deskripsi = $4, lampiran = COALESCE($5, lampiran), tipe_id = $6
 WHERE id = $1 AND kelas_id = $2
-RETURNING id, judul, deskripsi, lampiran, mata_pelajaran, pengguna_id, kelas_id, tipe_id, dibuat
+RETURNING id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat
 `
 
 type UpdatePostinganParams struct {
@@ -169,7 +157,6 @@ func (q *Queries) UpdatePostingan(ctx context.Context, arg UpdatePostinganParams
 		&i.Judul,
 		&i.Deskripsi,
 		&i.Lampiran,
-		&i.MataPelajaran,
 		&i.PenggunaID,
 		&i.KelasID,
 		&i.TipeID,

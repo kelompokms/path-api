@@ -94,10 +94,10 @@ func TestCreatePostingan(t *testing.T) {
 			pgxmock.NewRows([]string{"is_guru"}).AddRow(true),
 		)
 
-		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
-			AddRow(int32(1), "Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"https://example.com/file.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(2), time.Now())
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(int32(1), "Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"https://example.com/file.pdf"}, int32(1), int32(1), int32(2), pgtype.Timestamp{Time: time.Now(), Valid: true})
 
-		mockPool.ExpectQuery("INSERT").WithArgs("Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"https://example.com/file.pdf"}, int32(2), int32(1), int32(1), pgtype.Text{String: "", Valid: false}).WillReturnRows(rows)
+		mockPool.ExpectQuery("INSERT").WithArgs("Tugas 1", pgtype.Text{String: "Kerjakan halaman 10", Valid: true}, []string{"https://example.com/file.pdf"}, int32(2), int32(1), int32(1)).WillReturnRows(rows)
 
 		err := h.Create(c)
 		assert.NoError(t, err)
@@ -175,8 +175,42 @@ func TestListPostingan(t *testing.T) {
 	e := echo.New()
 	e.Validator = utils.NewValidator()
 
-	t.Run("successful list postingan", func(t *testing.T) {
+	t.Run("successful list postingan with tipe filter as non-author member", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/posts?tipe=1", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		// Member user 2 reads post created by guru user 1
+		setAuthContext(c, 2, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(10)),
+		)
+		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(2)).WillReturnRows(
+			pgxmock.NewRows([]string{"exists"}).AddRow(true),
+		)
+
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "tipe_id", "pengguna_id", "kelas_id", "dibuat"}).
+			AddRow(int32(1), "Tugas 1", pgtype.Text{String: "Deskripsi", Valid: true}, []string(nil), int32(1), int32(1), int32(10), pgtype.Timestamp{Time: time.Now(), Valid: true})
+
+		mockPool.ExpectQuery("SELECT p.id").WithArgs(int32(10), pgtype.Int4{Int32: 1, Valid: true}).WillReturnRows(rows)
+
+		err := h.List(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp []PostinganResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.Len(t, resp, 1)
+		assert.Equal(t, int32(1), resp[0].PenggunaID)
+		assert.Equal(t, []string{}, resp[0].Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("successful list postingan without tipe filter returns empty json array when empty", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/posts", nil)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 		c.SetPathValues(echo.PathValues{
@@ -184,20 +218,78 @@ func TestListPostingan(t *testing.T) {
 		})
 		setAuthContext(c, 1, false)
 
-		// GetKelasID
-		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(
-			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(10)),
+		)
+		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(1)).WillReturnRows(
+			pgxmock.NewRows([]string{"exists"}).AddRow(true),
 		)
 
-		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "tipe_id", "pengguna_id", "kelas_id", "dibuat"}).
-			AddRow(int32(1), "Tugas 1", pgtype.Text{String: "Deskripsi", Valid: true}, []string{}, int32(1), int32(1), int32(1), pgtype.Timestamp{Time: time.Now(), Valid: true})
-
-		mockPool.ExpectQuery("SELECT").WithArgs(int32(1), int32(1), int32(1), pgtype.Text{String: "", Valid: false}).WillReturnRows(rows)
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "tipe_id", "pengguna_id", "kelas_id", "dibuat"})
+		mockPool.ExpectQuery("SELECT p.id").WithArgs(int32(10), pgtype.Int4{Valid: false}).WillReturnRows(rows)
 
 		err := h.List(c)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "[]\n", rec.Body.String())
 		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("forbidden when user is not a member of kelas", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/posts?tipe=1", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		setAuthContext(c, 99, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(10)),
+		)
+		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(99)).WillReturnRows(
+			pgxmock.NewRows([]string{"exists"}).AddRow(false),
+		)
+
+		err := h.List(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusForbidden, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("not found when kelas does not exist", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/UNKNOWN/posts?tipe=2", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "UNKNOWN"},
+		})
+		setAuthContext(c, 1, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("UNKNOWN").WillReturnError(pgx.ErrNoRows)
+
+		err := h.List(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusNotFound, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("bad request when tipe out of range", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/posts?tipe=99", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		setAuthContext(c, 1, false)
+
+		err := h.List(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 }
 
@@ -239,8 +331,8 @@ func TestEditPostingan(t *testing.T) {
 			pgxmock.NewRows([]string{"is_guru"}).AddRow(true),
 		)
 
-		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
-			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string{"https://example.com/file.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string{"https://example.com/file.pdf"}, int32(1), int32(1), int32(1), pgtype.Timestamp{Time: time.Now(), Valid: true})
 
 		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), int32(1), "Updated Judul", pgtype.Text{String: "Updated Deskripsi", Valid: true}, []string{"https://example.com/file.pdf"}, int32(1)).WillReturnRows(rows)
 
@@ -275,8 +367,8 @@ func TestEditPostingan(t *testing.T) {
 			pgxmock.NewRows([]string{"is_guru"}).AddRow(true),
 		)
 
-		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "mata_pelajaran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
-			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string{"existing.pdf"}, pgtype.Text{String: "", Valid: false}, int32(1), int32(1), int32(1), time.Now())
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string{"existing.pdf"}, int32(1), int32(1), int32(1), pgtype.Timestamp{Time: time.Now(), Valid: true})
 
 		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string(nil), int32(1)).WillReturnRows(rows)
 

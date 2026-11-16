@@ -29,9 +29,8 @@ type CreatePostinganPayload struct {
 }
 
 type ListPostinganRequest struct {
-	TipeID    int32  `query:"tipe" validate:"required,gte=1,lte=2"`
+	TipeID    int32  `query:"tipe" validate:"omitempty,gte=1,lte=2"`
 	KodeKelas string `param:"kode_kelas" validate:"required"`
-	Mapel     string `query:"mapel"`
 }
 
 type EditPostinganRequest struct {
@@ -51,15 +50,14 @@ type EditPostinganPayload struct {
 }
 
 type PostinganResponse struct {
-	ID            int32     `json:"id" example:"1"`
-	Judul         string    `json:"judul" example:"Materi Bab 1"`
-	Deskripsi     string    `json:"deskripsi" example:"Pelajari materi berikut"`
-	Lampiran      []string  `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
-	MataPelajaran string    `json:"mata_pelajaran,omitempty" example:"Matematika"`
-	PenggunaID    int32     `json:"pengguna_id" example:"1"`
-	KelasID       int32     `json:"kelas_id" example:"1"`
-	TipeID        int32     `json:"tipe_id" example:"1"`
-	Dibuat        time.Time `json:"dibuat" example:"2026-01-01T00:00:00Z"`
+	ID         int32     `json:"id" example:"1"`
+	Judul      string    `json:"judul" example:"Materi Bab 1"`
+	Deskripsi  string    `json:"deskripsi" example:"Pelajari materi berikut"`
+	Lampiran   []string  `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
+	PenggunaID int32     `json:"pengguna_id" example:"1"`
+	KelasID    int32     `json:"kelas_id" example:"1"`
+	TipeID     int32     `json:"tipe_id" example:"1"`
+	Dibuat     time.Time `json:"dibuat" example:"2026-01-01T00:00:00Z"`
 }
 
 type TipePostinganResponse struct {

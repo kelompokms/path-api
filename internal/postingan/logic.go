@@ -22,6 +22,29 @@ const maxLampiran = 5
 // /uploads/YYYY/MM/DD/<32 hex chars>.<ext>
 var uploadPathPattern = regexp.MustCompile(`^uploads/\d{4}/\d{2}/\d{2}/[a-f0-9]{32}\.[a-z0-9]+$`)
 
+func toPostinganResponse(
+	id int32,
+	judul string,
+	deskripsi pgtype.Text,
+	lampiran []string,
+	penggunaID, kelasID, tipeID int32,
+	dibuat pgtype.Timestamp,
+) PostinganResponse {
+	if lampiran == nil {
+		lampiran = []string{}
+	}
+	return PostinganResponse{
+		ID:         id,
+		Judul:      judul,
+		Deskripsi:  deskripsi.String,
+		Lampiran:   lampiran,
+		PenggunaID: penggunaID,
+		KelasID:    kelasID,
+		TipeID:     tipeID,
+		Dibuat:     dibuat.Time,
+	}
+}
+
 func (h *Handler) authorizeGuruKelas(c *echo.Context, kodeKelas, forbiddenMsg string) (int32, int32, error) {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -103,21 +126,29 @@ func (h *Handler) Create(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat postingan")
 	}
 
-	return c.JSON(http.StatusCreated, post)
+	return c.JSON(http.StatusCreated, toPostinganResponse(
+		post.ID,
+		post.Judul,
+		post.Deskripsi,
+		post.Lampiran,
+		post.PenggunaID,
+		post.KelasID,
+		post.TipeID,
+		post.Dibuat,
+	))
 }
 
 // List godoc
 //
 //	@Summary		List Postingan
-//	@Description	Mendapatkan daftar postingan pada kelas berdasarkan tipe dan mata pelajaran
+//	@Description	Mendapatkan daftar postingan pada kelas, opsional difilter berdasarkan tipe postingan
 //	@Tags			Postingan
 //	@Accept			json
 //	@Produce		json
-//	@Param			kode_kelas	path		string	true	"Kode Kelas"
-//	@Param			tipe		query		int		true	"Tipe Postingan (1: Tugas, 2: Materi)"
-//	@Param			mapel		query		string	false	"Mata Pelajaran"
-//	@Success		200			{object}	[]PostinganResponse
-//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Param			tipe				query		int		false	"Tipe Postingan (1: Tugas, 2: Materi)"
+//	@Success		200					{object}	[]PostinganResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/posts [get]
 func (h *Handler) List(c *echo.Context) error {
 	var req ListPostinganRequest
@@ -134,24 +165,55 @@ func (h *Handler) List(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	kelasID, err := h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
-
-	// Konversi string req.Mapel menjadi pgtype.Text yang diminta oleh sqlc
-	mapelParam := pgtype.Text{
-		String: req.Mapel,
-		Valid:  req.Mapel != "",
+	ctx := c.Request().Context()
+	kelasID, err := h.db.GetKelasID(ctx, req.KodeKelas)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
 	}
 
-	tugas, err := h.db.ListPostingan(c.Request().Context(), db.ListPostinganParams{
-		TipeID:        req.TipeID,
-		PenggunaID:    claims.UserID,
-		KelasID:       kelasID,
-		MataPelajaran: mapelParam,
+	isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
+		KodeKelas:  req.KodeKelas,
+		PenggunaID: claims.UserID,
 	})
 	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+	}
+	if !isMember {
+		return echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+	}
+
+	rows, err := h.db.ListPostingan(ctx, db.ListPostinganParams{
+		KelasID: kelasID,
+		TipeID: pgtype.Int4{
+			Int32: req.TipeID,
+			Valid: req.TipeID > 0,
+		},
+	})
+	if err != nil {
+		log.Println(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil postingan")
 	}
-	return c.JSON(http.StatusOK, tugas)
+
+	posts := make([]PostinganResponse, 0, len(rows))
+	for _, row := range rows {
+		posts = append(posts, toPostinganResponse(
+			row.ID,
+			row.Judul,
+			row.Deskripsi,
+			row.Lampiran,
+			row.PenggunaID,
+			row.KelasID,
+			row.TipeID,
+			row.Dibuat,
+		))
+	}
+
+	return c.JSON(http.StatusOK, posts)
 }
 
 // Edit godoc
@@ -213,7 +275,16 @@ func (h *Handler) Edit(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui postingan")
 	}
 
-	return c.JSON(http.StatusOK, updatedPost)
+	return c.JSON(http.StatusOK, toPostinganResponse(
+		updatedPost.ID,
+		updatedPost.Judul,
+		updatedPost.Deskripsi,
+		updatedPost.Lampiran,
+		updatedPost.PenggunaID,
+		updatedPost.KelasID,
+		updatedPost.TipeID,
+		updatedPost.Dibuat,
+	))
 }
 
 // ListTipe godoc

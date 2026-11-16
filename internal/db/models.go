@@ -72,15 +72,14 @@ type PengumpulanTuga struct {
 }
 
 type Postingan struct {
-	ID            int32            `json:"id"`
-	Judul         string           `json:"judul"`
-	Deskripsi     pgtype.Text      `json:"deskripsi"`
-	Lampiran      []string         `json:"lampiran"`
-	MataPelajaran pgtype.Text      `json:"mata_pelajaran"`
-	PenggunaID    int32            `json:"pengguna_id"`
-	KelasID       int32            `json:"kelas_id"`
-	TipeID        int32            `json:"tipe_id"`
-	Dibuat        pgtype.Timestamp `json:"dibuat"`
+	ID         int32            `json:"id"`
+	Judul      string           `json:"judul"`
+	Deskripsi  pgtype.Text      `json:"deskripsi"`
+	Lampiran   []string         `json:"lampiran"`
+	PenggunaID int32            `json:"pengguna_id"`
+	KelasID    int32            `json:"kelas_id"`
+	TipeID     int32            `json:"tipe_id"`
+	Dibuat     pgtype.Timestamp `json:"dibuat"`
 }
 
 type TipePostingan struct {

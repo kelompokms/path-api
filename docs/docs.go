@@ -810,7 +810,7 @@ const docTemplate = `{
         },
         "/kelas/{kode_kelas}/posts": {
             "get": {
-                "description": "Mendapatkan daftar postingan pada kelas berdasarkan tipe dan mata pelajaran",
+                "description": "Mendapatkan daftar postingan pada kelas, opsional difilter berdasarkan tipe postingan",
                 "consumes": [
                     "application/json"
                 ],
@@ -833,13 +833,6 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Tipe Postingan (1: Tugas, 2: Materi)",
                         "name": "tipe",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Mata Pelajaran",
-                        "name": "mapel",
                         "in": "query"
                     }
                 ],
@@ -861,6 +854,18 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -1848,10 +1853,6 @@ const docTemplate = `{
                     "example": [
                         "[\"/uploads/2026/11/08/abc.pdf\"]"
                     ]
-                },
-                "mata_pelajaran": {
-                    "type": "string",
-                    "example": "Matematika"
                 },
                 "pengguna_id": {
                     "type": "integer",

@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS postingan (
 	judul TEXT NOT NULL,
 	deskripsi TEXT,
 	lampiran TEXT ARRAY,
-	mata_pelajaran TEXT,
 	pengguna_id INTEGER REFERENCES pengguna (id) NOT NULL,
 	kelas_id INTEGER REFERENCES kelas (id) NOT NULL,
 	tipe_id INTEGER REFERENCES tipe_postingan (id) NOT NULL,
