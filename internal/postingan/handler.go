@@ -71,6 +71,17 @@ type PengumpulanResponse struct {
 	Dibuat      *time.Time `json:"dibuat,omitempty" example:"2026-01-01T00:00:00Z"`
 }
 
+type PengumpulanItemResponse struct {
+	ID             int32     `json:"id" example:"1"`
+	PostinganID    int32     `json:"postingan_id" example:"1"`
+	PenggunaID     int32     `json:"pengguna_id" example:"2"`
+	Nama           string    `json:"nama" example:"Budi Santoso"`
+	Email          string    `json:"email" example:"budi@example.com"`
+	ProfilePicture string    `json:"profile_picture" example:"uploads/pfp/2026/11/10/user2_abc.jpg"`
+	Lampiran       []string  `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
+	Dibuat         time.Time `json:"dibuat" example:"2026-01-01T00:00:00Z"`
+}
+
 type TarikPengumpulanResponse struct {
 	Message  string   `json:"message" example:"Pengumpulan tugas berhasil ditarik"`
 	Lampiran []string `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`

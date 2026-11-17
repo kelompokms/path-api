@@ -298,6 +298,36 @@ definitions:
     - judul
     - tipe
     type: object
+  postingan.PengumpulanItemResponse:
+    properties:
+      dibuat:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      email:
+        example: budi@example.com
+        type: string
+      id:
+        example: 1
+        type: integer
+      lampiran:
+        example:
+        - '["/uploads/2026/11/08/abc.pdf"]'
+        items:
+          type: string
+        type: array
+      nama:
+        example: Budi Santoso
+        type: string
+      pengguna_id:
+        example: 2
+        type: integer
+      postingan_id:
+        example: 1
+        type: integer
+      profile_picture:
+        example: uploads/pfp/2026/11/10/user2_abc.jpg
+        type: string
+    type: object
   postingan.PengumpulanResponse:
     properties:
       dibuat:
@@ -1013,8 +1043,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Mendapatkan status dan lampiran pengumpulan tugas milik murid yang
-        sedang login
+      description: Mendapatkan daftar pengumpulan tugas dari semua murid pada postingan
+        tugas tertentu (khusus guru kelas)
       parameters:
       - description: Kode Kelas
         in: path
@@ -1032,7 +1062,9 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/postingan.PengumpulanResponse'
+            items:
+              $ref: '#/definitions/postingan.PengumpulanItemResponse'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -1053,7 +1085,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
-      summary: Get Pengumpulan Tugas Murid
+      summary: List Pengumpulan Tugas
       tags:
       - Postingan
     post:
@@ -1110,6 +1142,53 @@ paths:
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
       summary: Kumpulkan Tugas
+      tags:
+      - Postingan
+  /kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan/saya:
+    get:
+      consumes:
+      - application/json
+      description: Mendapatkan status dan lampiran pengumpulan tugas milik murid yang
+        sedang login
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Postingan ID
+        in: path
+        name: postinganID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/postingan.PengumpulanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Get Pengumpulan Tugas Murid
       tags:
       - Postingan
   /kelas/{kode_kelas}/posts:

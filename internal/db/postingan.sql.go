@@ -164,6 +164,62 @@ func (q *Queries) GetPostinganByID(ctx context.Context, arg GetPostinganByIDPara
 	return i, err
 }
 
+const listPengumpulanTugas = `-- name: ListPengumpulanTugas :many
+SELECT
+    pt.id,
+    pt.postingan_id,
+    pt.pengguna_id,
+    u.nama,
+    u.email,
+    u.profile_picture,
+    pt.lampiran,
+    pt.dibuat
+FROM pengumpulan_tugas pt
+JOIN pengguna u ON u.id = pt.pengguna_id
+WHERE pt.postingan_id = $1
+ORDER BY pt.dibuat DESC, pt.id DESC
+`
+
+type ListPengumpulanTugasRow struct {
+	ID             int32            `json:"id"`
+	PostinganID    int32            `json:"postingan_id"`
+	PenggunaID     int32            `json:"pengguna_id"`
+	Nama           string           `json:"nama"`
+	Email          string           `json:"email"`
+	ProfilePicture pgtype.Text      `json:"profile_picture"`
+	Lampiran       []string         `json:"lampiran"`
+	Dibuat         pgtype.Timestamp `json:"dibuat"`
+}
+
+func (q *Queries) ListPengumpulanTugas(ctx context.Context, postinganID int32) ([]ListPengumpulanTugasRow, error) {
+	rows, err := q.db.Query(ctx, listPengumpulanTugas, postinganID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPengumpulanTugasRow
+	for rows.Next() {
+		var i ListPengumpulanTugasRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostinganID,
+			&i.PenggunaID,
+			&i.Nama,
+			&i.Email,
+			&i.ProfilePicture,
+			&i.Lampiran,
+			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPostingan = `-- name: ListPostingan :many
 SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe_id, p.pengguna_id, p.kelas_id, p.dibuat
 FROM postingan p

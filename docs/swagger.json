@@ -804,7 +804,7 @@
         },
         "/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan": {
             "get": {
-                "description": "Mendapatkan status dan lampiran pengumpulan tugas milik murid yang sedang login",
+                "description": "Mendapatkan daftar pengumpulan tugas dari semua murid pada postingan tugas tertentu (khusus guru kelas)",
                 "consumes": [
                     "application/json"
                 ],
@@ -814,7 +814,7 @@
                 "tags": [
                     "Postingan"
                 ],
-                "summary": "Get Pengumpulan Tugas Murid",
+                "summary": "List Pengumpulan Tugas",
                 "parameters": [
                     {
                         "type": "string",
@@ -835,7 +835,10 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/postingan.PengumpulanResponse"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/postingan.PengumpulanItemResponse"
+                            }
                         }
                     },
                     "400": {
@@ -985,6 +988,75 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/postingan.TarikPengumpulanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan/saya": {
+            "get": {
+                "description": "Mendapatkan status dan lampiran pengumpulan tugas milik murid yang sedang login",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Get Pengumpulan Tugas Murid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/postingan.PengumpulanResponse"
                         }
                     },
                     "400": {
@@ -2019,6 +2091,48 @@
                     "type": "integer",
                     "maximum": 2,
                     "minimum": 1
+                }
+            }
+        },
+        "postingan.PengumpulanItemResponse": {
+            "type": "object",
+            "properties": {
+                "dibuat": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "budi@example.com"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"/uploads/2026/11/08/abc.pdf\"]"
+                    ]
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "pengguna_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "postingan_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "profile_picture": {
+                    "type": "string",
+                    "example": "uploads/pfp/2026/11/10/user2_abc.jpg"
                 }
             }
         },

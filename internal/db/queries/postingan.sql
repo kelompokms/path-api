@@ -28,6 +28,21 @@ WHERE postingan_id = $1 AND pengguna_id = $2
 ORDER BY id DESC
 LIMIT 1;
 
+-- name: ListPengumpulanTugas :many
+SELECT
+    pt.id,
+    pt.postingan_id,
+    pt.pengguna_id,
+    u.nama,
+    u.email,
+    u.profile_picture,
+    pt.lampiran,
+    pt.dibuat
+FROM pengumpulan_tugas pt
+JOIN pengguna u ON u.id = pt.pengguna_id
+WHERE pt.postingan_id = $1
+ORDER BY pt.dibuat DESC, pt.id DESC;
+
 -- name: CreatePengumpulanTugas :one
 INSERT INTO pengumpulan_tugas (postingan_id, pengguna_id, lampiran)
 VALUES ($1, $2, $3)
