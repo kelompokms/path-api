@@ -378,6 +378,48 @@ func TestEditPostingan(t *testing.T) {
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 
+	t.Run("empty lampiran clears existing attachments", func(t *testing.T) {
+		empty := []string{}
+		reqBody := EditPostinganRequest{
+			PostinganID: 1,
+			Judul:       "Updated Judul",
+			Lampiran:    &empty,
+			TipeID:      2,
+		}
+		jsonBody, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPatch, "/kelas/ABC123/postingan/1", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "postinganID", Value: "1"},
+		})
+		setAuthContext(c, 1, false)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		)
+		mockPool.ExpectQuery("SELECT COALESCE").WithArgs(int32(1), int32(1)).WillReturnRows(
+			pgxmock.NewRows([]string{"is_guru"}).AddRow(true),
+		)
+
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "pengguna_id", "kelas_id", "tipe_id", "dibuat"}).
+			AddRow(int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string{}, int32(1), int32(1), int32(2), pgtype.Timestamp{Time: time.Now(), Valid: true})
+
+		mockPool.ExpectQuery("UPDATE").WithArgs(int32(1), int32(1), "Updated Judul", pgtype.Text{String: "", Valid: false}, []string{}, int32(2)).WillReturnRows(rows)
+
+		err := h.Edit(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		var resp PostinganResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.Equal(t, []string{}, resp.Lampiran)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
 	t.Run("forbidden when non-guru edits postingan", func(t *testing.T) {
 		reqBody := EditPostinganRequest{
 			PostinganID: 1,

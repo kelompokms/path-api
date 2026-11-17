@@ -16,6 +16,8 @@ services:
             - ${HOST_PORT}:3000
         entrypoint: /app/path-api
         restart: unless-stopped
+        volumes:
+            - ./uploads:/app/uploads
 
     db:
         image: postgres:18-alpine
