@@ -50,8 +50,8 @@ func TestGetPengguna(t *testing.T) {
 		c := e.NewContext(req, rec)
 		setAuthContext(c, 1, false)
 
-		rows := pgxmock.NewRows([]string{"id", "nama", "email", "phone", "profile_picture"}).
-			AddRow(int32(1), "John Doe", "john@example.com", pgtype.Text{String: "", Valid: false}, pgtype.Text{String: "", Valid: false})
+		rows := pgxmock.NewRows([]string{"id", "nama", "email", "phone", "profile_picture", "role", "admin"}).
+			AddRow(int32(1), "John Doe", "john@example.com", pgtype.Text{String: "", Valid: false}, pgtype.Text{String: "", Valid: false}, "murid", false)
 
 		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
 

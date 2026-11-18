@@ -18,11 +18,7 @@ SELECT
     k.kode_kelas,
     k.dibuat,
     k.pengampu,
-    COALESCE(
-        BOOL_OR(ak.guru),
-        k.pengampu = sqlc.arg(pengguna_id)::integer,
-        FALSE
-    )::boolean AS guru
+    (COALESCE(BOOL_OR(ak.guru), FALSE) OR COALESCE(k.pengampu = sqlc.arg(pengguna_id)::integer, FALSE))::boolean AS guru
 FROM kelas k
 LEFT JOIN anggota_kelas ak
     ON ak.kelas_id = k.id AND ak.pengguna_id = sqlc.arg(pengguna_id)::integer
@@ -64,7 +60,7 @@ SELECT
     p.nama,
     p.email,
     p.profile_picture,
-    ak.guru,
+    (ak.guru OR COALESCE(k.pengampu = p.id, FALSE))::boolean AS guru,
     ak.dibuat
 FROM anggota_kelas ak
 JOIN pengguna p ON p.id = ak.pengguna_id
@@ -89,8 +85,10 @@ ORDER BY guru DESC, nama ASC;
 
 -- name: IsGuruKelas :one
 SELECT COALESCE(
-    (SELECT BOOL_OR(ak.guru) FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2),
-    (SELECT k.pengampu = $1 FROM kelas k WHERE k.id = $2),
+    (
+        EXISTS (SELECT 1 FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2 AND ak.guru = TRUE)
+        OR EXISTS (SELECT 1 FROM kelas k WHERE k.id = $2 AND k.pengampu = $1)
+    ),
     FALSE
 )::boolean AS is_guru;
 
@@ -118,3 +116,27 @@ LIMIT 1;
 -- name: LeaveKelas :exec
 DELETE FROM anggota_kelas
 WHERE pengguna_id = $1 AND kelas_id = (SELECT id FROM kelas WHERE kode_kelas = $2 LIMIT 1);
+
+-- name: ListAllKelas :many
+SELECT
+    k.id,
+    k.nama,
+    k.deskripsi,
+    k.tingkat,
+    k.tahun_ajaran,
+    k.kode_kelas,
+    k.dibuat,
+    k.pengampu,
+    COALESCE(p.nama, '')::text AS nama_pengampu
+FROM kelas k
+LEFT JOIN pengguna p ON p.id = k.pengampu
+WHERE (sqlc.narg(tahun_ajaran)::text IS NULL OR LOWER(k.tahun_ajaran) = LOWER(sqlc.narg(tahun_ajaran)::text))
+  AND (sqlc.narg(tingkat)::smallint IS NULL OR k.tingkat = sqlc.narg(tingkat)::smallint)
+  AND (sqlc.narg(nama)::text IS NULL OR k.nama ILIKE '%' || sqlc.narg(nama)::text || '%')
+ORDER BY k.tahun_ajaran DESC, k.tingkat ASC, k.nama ASC;
+
+-- name: UpdatePengampuKelas :one
+UPDATE kelas
+SET pengampu = $2
+WHERE kode_kelas = $1
+RETURNING *;

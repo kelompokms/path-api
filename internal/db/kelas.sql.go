@@ -123,8 +123,10 @@ func (q *Queries) IsAnggotaKelas(ctx context.Context, arg IsAnggotaKelasParams) 
 
 const isGuruKelas = `-- name: IsGuruKelas :one
 SELECT COALESCE(
-    (SELECT BOOL_OR(ak.guru) FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2),
-    (SELECT k.pengampu = $1 FROM kelas k WHERE k.id = $2),
+    (
+        EXISTS (SELECT 1 FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2 AND ak.guru = TRUE)
+        OR EXISTS (SELECT 1 FROM kelas k WHERE k.id = $2 AND k.pengampu = $1)
+    ),
     FALSE
 )::boolean AS is_guru
 `
@@ -172,13 +174,80 @@ func (q *Queries) LeaveKelas(ctx context.Context, arg LeaveKelasParams) error {
 	return err
 }
 
+const listAllKelas = `-- name: ListAllKelas :many
+SELECT
+    k.id,
+    k.nama,
+    k.deskripsi,
+    k.tingkat,
+    k.tahun_ajaran,
+    k.kode_kelas,
+    k.dibuat,
+    k.pengampu,
+    COALESCE(p.nama, '')::text AS nama_pengampu
+FROM kelas k
+LEFT JOIN pengguna p ON p.id = k.pengampu
+WHERE ($1::text IS NULL OR LOWER(k.tahun_ajaran) = LOWER($1::text))
+  AND ($2::smallint IS NULL OR k.tingkat = $2::smallint)
+  AND ($3::text IS NULL OR k.nama ILIKE '%' || $3::text || '%')
+ORDER BY k.tahun_ajaran DESC, k.tingkat ASC, k.nama ASC
+`
+
+type ListAllKelasParams struct {
+	TahunAjaran pgtype.Text `json:"tahun_ajaran"`
+	Tingkat     pgtype.Int2 `json:"tingkat"`
+	Nama        pgtype.Text `json:"nama"`
+}
+
+type ListAllKelasRow struct {
+	ID           int32            `json:"id"`
+	Nama         string           `json:"nama"`
+	Deskripsi    string           `json:"deskripsi"`
+	Tingkat      int16            `json:"tingkat"`
+	TahunAjaran  string           `json:"tahun_ajaran"`
+	KodeKelas    string           `json:"kode_kelas"`
+	Dibuat       pgtype.Timestamp `json:"dibuat"`
+	Pengampu     pgtype.Int4      `json:"pengampu"`
+	NamaPengampu string           `json:"nama_pengampu"`
+}
+
+func (q *Queries) ListAllKelas(ctx context.Context, arg ListAllKelasParams) ([]ListAllKelasRow, error) {
+	rows, err := q.db.Query(ctx, listAllKelas, arg.TahunAjaran, arg.Tingkat, arg.Nama)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllKelasRow
+	for rows.Next() {
+		var i ListAllKelasRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nama,
+			&i.Deskripsi,
+			&i.Tingkat,
+			&i.TahunAjaran,
+			&i.KodeKelas,
+			&i.Dibuat,
+			&i.Pengampu,
+			&i.NamaPengampu,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAnggotaKelas = `-- name: ListAnggotaKelas :many
 SELECT
     p.id AS pengguna_id,
     p.nama,
     p.email,
     p.profile_picture,
-    ak.guru,
+    (ak.guru OR COALESCE(k.pengampu = p.id, FALSE))::boolean AS guru,
     ak.dibuat
 FROM anggota_kelas ak
 JOIN pengguna p ON p.id = ak.pengguna_id
@@ -248,11 +317,7 @@ SELECT
     k.kode_kelas,
     k.dibuat,
     k.pengampu,
-    COALESCE(
-        BOOL_OR(ak.guru),
-        k.pengampu = $1::integer,
-        FALSE
-    )::boolean AS guru
+    (COALESCE(BOOL_OR(ak.guru), FALSE) OR COALESCE(k.pengampu = $1::integer, FALSE))::boolean AS guru
 FROM kelas k
 LEFT JOIN anggota_kelas ak
     ON ak.kelas_id = k.id AND ak.pengguna_id = $1::integer
@@ -354,6 +419,34 @@ type UpdateKelasParams struct {
 
 func (q *Queries) UpdateKelas(ctx context.Context, arg UpdateKelasParams) (Kela, error) {
 	row := q.db.QueryRow(ctx, updateKelas, arg.KodeKelas, arg.Nama, arg.Deskripsi)
+	var i Kela
+	err := row.Scan(
+		&i.ID,
+		&i.Nama,
+		&i.Tingkat,
+		&i.Deskripsi,
+		&i.TahunAjaran,
+		&i.KodeKelas,
+		&i.Dibuat,
+		&i.Pengampu,
+	)
+	return i, err
+}
+
+const updatePengampuKelas = `-- name: UpdatePengampuKelas :one
+UPDATE kelas
+SET pengampu = $2
+WHERE kode_kelas = $1
+RETURNING id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu
+`
+
+type UpdatePengampuKelasParams struct {
+	KodeKelas string      `json:"kode_kelas"`
+	Pengampu  pgtype.Int4 `json:"pengampu"`
+}
+
+func (q *Queries) UpdatePengampuKelas(ctx context.Context, arg UpdatePengampuKelasParams) (Kela, error) {
+	row := q.db.QueryRow(ctx, updatePengampuKelas, arg.KodeKelas, arg.Pengampu)
 	var i Kela
 	err := row.Scan(
 		&i.ID,

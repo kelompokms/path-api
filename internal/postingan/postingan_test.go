@@ -259,6 +259,27 @@ func TestListPostingan(t *testing.T) {
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 
+	t.Run("admin can list postingan without class membership", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/kelas/ABC123/posts", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+		})
+		setAuthContext(c, 1, true)
+
+		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows([]string{"id"}).AddRow(int32(10)),
+		)
+		rows := pgxmock.NewRows([]string{"id", "judul", "deskripsi", "lampiran", "tipe_id", "pengguna_id", "kelas_id", "dibuat"})
+		mockPool.ExpectQuery("SELECT p.id").WithArgs(int32(10), pgtype.Int4{Valid: false}).WillReturnRows(rows)
+
+		err := h.List(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
 	t.Run("not found when kelas does not exist", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/kelas/UNKNOWN/posts?tipe=2", nil)
 		rec := httptest.NewRecorder()

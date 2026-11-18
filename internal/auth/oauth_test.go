@@ -151,17 +151,17 @@ func TestOAuthCallbackGoogleNewUser(t *testing.T) {
 	require.NoError(t, err)
 	expectedVerifier = payload.CodeVerifier
 
-	mockPool.ExpectQuery("SELECT p.id, p.admin").
+	mockPool.ExpectQuery("SELECT p.id, rp.nama").
 		WithArgs("google", "google-sub-1").
 		WillReturnError(pgx.ErrNoRows)
 
-	mockPool.ExpectQuery("SELECT id, nama, email, profile_picture, admin").
+	mockPool.ExpectQuery("SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama").
 		WithArgs("jane@example.com").
 		WillReturnError(pgx.ErrNoRows)
 
 	mockPool.ExpectQuery("INSERT INTO pengguna").
 		WithArgs("Jane Doe", "jane@example.com", pgtype.Text{String: "https://example.com/avatar.png", Valid: true}).
-		WillReturnRows(pgxmock.NewRows([]string{"id", "admin"}).AddRow(int32(10), false))
+		WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(int32(10)))
 
 	mockPool.ExpectExec("INSERT INTO oauth_accounts").
 		WithArgs(int32(10), "google", "google-sub-1", "jane@example.com").
@@ -232,14 +232,14 @@ func TestOAuthCallbackDiscordLinkExistingEmailAndFrontendRedirect(t *testing.T) 
 
 	stateCookie, state := startOAuthFlow(t, e, "discord")
 
-	mockPool.ExpectQuery("SELECT p.id, p.admin").
+	mockPool.ExpectQuery("SELECT p.id, rp.nama").
 		WithArgs("discord", "discord-id-99").
 		WillReturnError(pgx.ErrNoRows)
 
-	mockPool.ExpectQuery("SELECT id, nama, email, profile_picture, admin").
+	mockPool.ExpectQuery("SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama").
 		WithArgs("existing@example.com").
-		WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "email", "profile_picture", "admin"}).
-			AddRow(int32(42), "Existing User", "existing@example.com", pgtype.Text{Valid: false}, true))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "email", "profile_picture", "role"}).
+			AddRow(int32(42), "Existing User", "existing@example.com", pgtype.Text{Valid: false}, "admin"))
 
 	mockPool.ExpectExec("INSERT INTO oauth_accounts").
 		WithArgs(int32(42), "discord", "discord-id-99", "existing@example.com").
@@ -287,9 +287,9 @@ func TestOAuthCallbackReturningLinkedUser(t *testing.T) {
 
 	stateCookie, state := startOAuthFlow(t, e, "google")
 
-	mockPool.ExpectQuery("SELECT p.id, p.admin").
+	mockPool.ExpectQuery("SELECT p.id, rp.nama").
 		WithArgs("google", "google-sub-existing").
-		WillReturnRows(pgxmock.NewRows([]string{"id", "admin"}).AddRow(int32(7), false))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(7), "murid"))
 
 	cbReq := httptest.NewRequest(http.MethodGet, "/auth/oauth/google/callback?code=auth-code-123&state="+url.QueryEscape(state), nil)
 	cbReq.AddCookie(stateCookie)
@@ -409,9 +409,9 @@ func TestOAuthMobileDeepLinkRedirectAndAllowlist(t *testing.T) {
 	t.Run("mobile deep link receives token query param", func(t *testing.T) {
 		stateCookie, state := startOAuthFlow(t, e, "google", "redirect_uri="+url.QueryEscape(defaultMobileOAuthRedirectURI))
 
-		mockPool.ExpectQuery("SELECT p.id, p.admin").
+		mockPool.ExpectQuery("SELECT p.id, rp.nama").
 			WithArgs("google", "google-mobile-1").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "admin"}).AddRow(int32(55), false))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(55), "murid"))
 
 		cbReq := httptest.NewRequest(http.MethodGet, "/auth/oauth/google/callback?code=auth-code-123&state="+url.QueryEscape(state), nil)
 		cbReq.AddCookie(stateCookie)
@@ -467,9 +467,9 @@ func TestOAuthMobileDeepLinkRedirectAndAllowlist(t *testing.T) {
 		assert.NotContains(t, state, payload.CodeVerifier)
 		assert.NotContains(t, state, clientState)
 
-		mockPool.ExpectQuery("SELECT p.id, p.admin").
+		mockPool.ExpectQuery("SELECT p.id, rp.nama").
 			WithArgs("google", "google-mobile-1").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "admin"}).AddRow(int32(55), false))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(55), "murid"))
 
 		// Intentionally omit oauth_state cookie to simulate Custom Tab / ITP dropping cookies.
 		cbReq := httptest.NewRequest(http.MethodGet, "/auth/oauth/google/callback?code=auth-code-123&state="+url.QueryEscape(state), nil)

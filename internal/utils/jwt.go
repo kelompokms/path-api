@@ -2,6 +2,7 @@ package utils
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -10,9 +11,15 @@ import (
 )
 
 type JWTCustomClaims struct {
-	UserID int32 `json:"user_id"`
-	Admin  bool  `json:"admin"`
+	UserID int32  `json:"user_id"`
+	Admin  bool   `json:"admin"`
+	Role   string `json:"role"`
 	jwt.RegisteredClaims
+}
+
+// IsAdmin returns true when the claims grant universal admin access via Role or legacy Admin flag.
+func (c *JWTCustomClaims) IsAdmin() bool {
+	return strings.EqualFold(c.Role, "admin") || c.Admin
 }
 
 var JWTConfig echojwt.Config = echojwt.Config{
@@ -26,9 +33,22 @@ var JWTConfig echojwt.Config = echojwt.Config{
 }
 
 func NewToken(userID int32, admin bool) (string, error) {
+	role := "murid"
+	if admin {
+		role = "admin"
+	}
+	return NewTokenWithRole(userID, role)
+}
+
+func NewTokenWithRole(userID int32, role string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(role))
+	if normalized == "" {
+		normalized = "murid"
+	}
 	claims := &JWTCustomClaims{
 		UserID: userID,
-		Admin:  admin,
+		Admin:  normalized == "admin",
+		Role:   normalized,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 168)),
 		},

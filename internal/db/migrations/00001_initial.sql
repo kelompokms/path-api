@@ -4,6 +4,11 @@ CREATE TABLE IF NOT EXISTS tipe_postingan (
 	nama TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS role_pengguna (
+	id SERIAL PRIMARY KEY,
+	nama TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS pengguna (
 	id SERIAL PRIMARY KEY,
 	nama TEXT NOT NULL,
@@ -11,7 +16,7 @@ CREATE TABLE IF NOT EXISTS pengguna (
 	phone TEXT,
 	profile_picture TEXT,
 	password TEXT,
-	admin BOOLEAN NOT NULL DEFAULT FALSE,
+	id_role_pengguna INTEGER REFERENCES role_pengguna (id) NOT NULL,
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -63,6 +68,7 @@ CREATE TABLE IF NOT EXISTS file (
 CREATE TABLE IF NOT EXISTS kalender_akademik (
 	id SERIAL PRIMARY KEY,
 	nama_kegiatan TEXT NOT NULL,
+	keterangan TEXT NOT NULL DEFAULT '',
 	tanggal_mulai DATE NOT NULL,
 	tanggal_selesai DATE NOT NULL,
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
@@ -92,8 +98,15 @@ INSERT INTO tipe_postingan(nama) VALUES
 ('materi'),
 ('tugas');
 
-INSERT INTO pengguna(nama, email, password, admin) VALUES
-('admin', 'admin@example.com', '$2a$10$olMNj43m1Rdw2u1XlPIs.uasf0WIluzVHjaqk0UH3TzSoZcUVzF.i', true);
+INSERT INTO role_pengguna(nama) VALUES
+('admin'),
+('guru'),
+('murid');
+
+INSERT INTO pengguna(nama, email, password, id_role_pengguna) VALUES
+('admin', 'admin@example.com', '$2a$10$olMNj43m1Rdw2u1XlPIs.uasf0WIluzVHjaqk0UH3TzSoZcUVzF.i', 1),
+('John Doe', 'johndoe@example.com', '$2a$10$rvJQqSGhch00b01xbQ01Sebt2Ua/9qyODQl/ngVPJsz7kT7t9w4rG', 2),
+('Budi', 'budi@example.com', '$2a$10$IgOJikpoGNP1bCDFa4C2v.7uAyxEG7jPlOP5ND7n5kDzCOamtjspC', 2);
 
 -- +goose StatementEnd
 
@@ -107,5 +120,6 @@ DROP TABLE IF EXISTS postingan;
 DROP TABLE IF EXISTS anggota_kelas;
 DROP TABLE IF EXISTS kelas;
 DROP TABLE IF EXISTS pengguna;
+DROP TABLE IF EXISTS role_pengguna;
 DROP TABLE IF EXISTS tipe_postingan;
 DROP TABLE IF EXISTS kalender_akademik;

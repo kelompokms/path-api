@@ -36,6 +36,8 @@ type GetPenggunaSuccessResponse struct {
 	Email          string `json:"email" example:"johndoe@example.com"`
 	Phone          string `json:"phone" example:"123123123"`
 	ProfilePicture string `json:"profile_picture" example:"joe_mama.jpg"`
+	Role           string `json:"role" example:"murid"`
+	Admin          bool   `json:"admin" example:"false"`
 }
 
 type GetPenggunaFailure401Response struct {

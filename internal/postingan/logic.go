@@ -180,16 +180,18 @@ func (h *Handler) List(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
 	}
 
-	isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
-		KodeKelas:  req.KodeKelas,
-		PenggunaID: claims.UserID,
-	})
-	if err != nil {
-		log.Println(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
-	}
-	if !isMember {
-		return echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+	if !claims.IsAdmin() {
+		isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
+			KodeKelas:  req.KodeKelas,
+			PenggunaID: claims.UserID,
+		})
+		if err != nil {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+		}
+		if !isMember {
+			return echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+		}
 	}
 
 	rows, err := h.db.ListPostingan(ctx, db.ListPostinganParams{

@@ -1,21 +1,28 @@
 -- name: GetPasswordPenggunaByEmail :one
-SELECT id, password, admin FROM pengguna WHERE email = $1;
+SELECT p.id, p.password, rp.nama AS role
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE p.email = $1;
 
 -- name: GetPasswordPenggunaByID :one
 SELECT password FROM pengguna WHERE id = $1;
 
 -- name: GetPenggunaByEmail :one
-SELECT id, nama, email, profile_picture, admin FROM pengguna WHERE email = $1;
+SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama AS role
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE p.email = $1;
 
 -- name: CreateOAuthPengguna :one
-INSERT INTO pengguna (nama, email, profile_picture, admin)
-VALUES ($1, $2, $3, FALSE)
-RETURNING id, admin;
+INSERT INTO pengguna (nama, email, profile_picture, id_role_pengguna)
+SELECT $1, $2, $3, id FROM role_pengguna WHERE nama = 'murid'
+RETURNING id;
 
 -- name: GetPenggunaByOAuthAccount :one
-SELECT p.id, p.admin
+SELECT p.id, rp.nama AS role
 FROM oauth_accounts oa
 JOIN pengguna p ON p.id = oa.pengguna_id
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 WHERE oa.provider = $1 AND oa.provider_user_id = $2;
 
 -- name: LinkOAuthAccount :exec

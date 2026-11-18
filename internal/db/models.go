@@ -27,6 +27,7 @@ type File struct {
 type KalenderAkademik struct {
 	ID             int32            `json:"id"`
 	NamaKegiatan   string           `json:"nama_kegiatan"`
+	Keterangan     string           `json:"keterangan"`
 	TanggalMulai   pgtype.Date      `json:"tanggal_mulai"`
 	TanggalSelesai pgtype.Date      `json:"tanggal_selesai"`
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
@@ -59,7 +60,7 @@ type Pengguna struct {
 	Phone          pgtype.Text      `json:"phone"`
 	ProfilePicture pgtype.Text      `json:"profile_picture"`
 	Password       pgtype.Text      `json:"password"`
-	Admin          bool             `json:"admin"`
+	IDRolePengguna int32            `json:"id_role_pengguna"`
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
 }
 
@@ -80,6 +81,11 @@ type Postingan struct {
 	KelasID    int32            `json:"kelas_id"`
 	TipeID     int32            `json:"tipe_id"`
 	Dibuat     pgtype.Timestamp `json:"dibuat"`
+}
+
+type RolePengguna struct {
+	ID   int32  `json:"id"`
+	Nama string `json:"nama"`
 }
 
 type TipePostingan struct {

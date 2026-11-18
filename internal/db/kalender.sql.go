@@ -12,23 +12,30 @@ import (
 )
 
 const createKegiatanKalender = `-- name: CreateKegiatanKalender :one
-INSERT INTO kalender_akademik (nama_kegiatan, tanggal_mulai, tanggal_selesai)
-VALUES ($1, $2, $3)
-RETURNING id, nama_kegiatan, tanggal_mulai, tanggal_selesai, dibuat
+INSERT INTO kalender_akademik (nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai)
+VALUES ($1, $2, $3, $4)
+RETURNING id, nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai, dibuat
 `
 
 type CreateKegiatanKalenderParams struct {
 	NamaKegiatan   string      `json:"nama_kegiatan"`
+	Keterangan     string      `json:"keterangan"`
 	TanggalMulai   pgtype.Date `json:"tanggal_mulai"`
 	TanggalSelesai pgtype.Date `json:"tanggal_selesai"`
 }
 
 func (q *Queries) CreateKegiatanKalender(ctx context.Context, arg CreateKegiatanKalenderParams) (KalenderAkademik, error) {
-	row := q.db.QueryRow(ctx, createKegiatanKalender, arg.NamaKegiatan, arg.TanggalMulai, arg.TanggalSelesai)
+	row := q.db.QueryRow(ctx, createKegiatanKalender,
+		arg.NamaKegiatan,
+		arg.Keterangan,
+		arg.TanggalMulai,
+		arg.TanggalSelesai,
+	)
 	var i KalenderAkademik
 	err := row.Scan(
 		&i.ID,
 		&i.NamaKegiatan,
+		&i.Keterangan,
 		&i.TanggalMulai,
 		&i.TanggalSelesai,
 		&i.Dibuat,
@@ -46,7 +53,7 @@ func (q *Queries) DeleteSemuaKegiatanKalender(ctx context.Context) error {
 }
 
 const listKegiatanKalender = `-- name: ListKegiatanKalender :many
-SELECT id, nama_kegiatan, tanggal_mulai, tanggal_selesai, dibuat FROM kalender_akademik
+SELECT id, nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai, dibuat FROM kalender_akademik
 ORDER BY tanggal_mulai ASC
 `
 
@@ -62,6 +69,7 @@ func (q *Queries) ListKegiatanKalender(ctx context.Context) ([]KalenderAkademik,
 		if err := rows.Scan(
 			&i.ID,
 			&i.NamaKegiatan,
+			&i.Keterangan,
 			&i.TanggalMulai,
 			&i.TanggalSelesai,
 			&i.Dibuat,

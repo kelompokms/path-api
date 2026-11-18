@@ -313,16 +313,18 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
 	}
 
-	isMember, err := h.db.IsAnggotaKelas(c.Request().Context(), db.IsAnggotaKelasParams{
-		KodeKelas:  req.KodeKelas,
-		PenggunaID: claims.UserID,
-	})
-	if err != nil {
-		log.Println(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
-	}
-	if !isMember {
-		return echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+	if !claims.IsAdmin() {
+		isMember, err := h.db.IsAnggotaKelas(c.Request().Context(), db.IsAnggotaKelasParams{
+			KodeKelas:  req.KodeKelas,
+			PenggunaID: claims.UserID,
+		})
+		if err != nil {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+		}
+		if !isMember {
+			return echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+		}
 	}
 
 	rows, err := h.db.ListAnggotaKelas(c.Request().Context(), req.KodeKelas)
@@ -354,18 +356,26 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 // Create godoc
 //
 //	@Summary		Buat Kelas
-//	@Description	Buat Kelas menggunakan nama dan tingkat dan mengembalikan message
+//	@Description	Membuat kelas baru dengan pengampu default null (khusus admin)
 //	@Tags			Kelas
 //	@Accept			json
 //	@Produce		json
-//	@Param			request		body		CreateKelasRequest	true	"Create Kelas Request Payload"
-//	@Success		200			{object}	utils.HTTPResponse
-//	@Failure		400,401,500	{object}	utils.HTTPResponse
+//	@Param			request				body		CreateKelasRequest	true	"Create Kelas Request Payload"
+//	@Success		201					{object}	utils.HTTPResponse
+//	@Failure		400,401,403,500		{object}	utils.HTTPResponse
 //	@Router			/kelas [post]
 func (h *Handler) Create(c *echo.Context) error {
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+	if !claims.IsAdmin() {
+		return echo.NewHTTPError(http.StatusForbidden, "Hanya admin yang dapat membuat kelas")
+	}
+
 	req := CreateKelasRequest{}
 
-	err := c.Bind(&req)
+	err = c.Bind(&req)
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -376,19 +386,20 @@ func (h *Handler) Create(c *echo.Context) error {
 		return utils.ValidationErrorHandler(c, err)
 	}
 
-	claims, err := utils.GetClaims(c)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	nama := strings.TrimSpace(req.Nama)
+	tahunAjaran := strings.TrimSpace(req.TahunAjaran)
+	if nama == "" || tahunAjaran == "" || req.Tingkat <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Nama, tingkat positif, dan tahun ajaran wajib diisi")
 	}
 
 	kodeKelas := utils.GenerateHashCode()
 
 	err = h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
-		Nama:        strings.TrimSpace(req.Nama),
+		Nama:        nama,
 		Deskripsi:   strings.TrimSpace(req.Deskripsi),
 		Tingkat:     req.Tingkat,
-		TahunAjaran: req.TahunAjaran,
-		Pengampu:    pgtype.Int4{Int32: claims.UserID, Valid: true},
+		TahunAjaran: tahunAjaran,
+		Pengampu:    pgtype.Int4{Valid: false},
 		KodeKelas:   kodeKelas,
 	})
 

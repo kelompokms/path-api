@@ -337,13 +337,13 @@ func (h *Handler) OAuthCallback(c *echo.Context) error {
 		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "email_unverified", "email OAuth belum terverifikasi atau tidak tersedia")
 	}
 
-	userID, isAdmin, err := h.resolveOAuthUser(ctx, providerName, userInfo)
+	userID, role, err := h.resolveOAuthUser(ctx, providerName, userInfo)
 	if err != nil {
 		log.Println("Error resolving OAuth user:", err)
 		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "account_error", "gagal memproses akun OAuth")
 	}
 
-	token, err := utils.NewToken(userID, isAdmin)
+	token, err := utils.NewTokenWithRole(userID, role)
 	if err != nil {
 		log.Println("Error creating JWT token:", err)
 		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "token_creation_failed", "gagal membuat token autentikasi")
@@ -387,16 +387,16 @@ func buildOAuthRedirectURL(baseURL, key, value, clientNonce string) string {
 	return u.String()
 }
 
-func (h *Handler) resolveOAuthUser(ctx context.Context, provider string, userInfo oauthUserInfo) (int32, bool, error) {
+func (h *Handler) resolveOAuthUser(ctx context.Context, provider string, userInfo oauthUserInfo) (int32, string, error) {
 	linkedUser, err := h.db.GetPenggunaByOAuthAccount(ctx, db.GetPenggunaByOAuthAccountParams{
 		Provider:       provider,
 		ProviderUserID: userInfo.ID,
 	})
 	if err == nil {
-		return linkedUser.ID, linkedUser.Admin, nil
+		return linkedUser.ID, linkedUser.Role, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return 0, false, err
+		return 0, "", err
 	}
 
 	existingUser, err := h.db.GetPenggunaByEmail(ctx, userInfo.Email)
@@ -407,12 +407,12 @@ func (h *Handler) resolveOAuthUser(ctx context.Context, provider string, userInf
 			ProviderUserID: userInfo.ID,
 			Email:          userInfo.Email,
 		}); err != nil {
-			return 0, false, err
+			return 0, "", err
 		}
-		return existingUser.ID, existingUser.Admin, nil
+		return existingUser.ID, existingUser.Role, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return 0, false, err
+		return 0, "", err
 	}
 
 	displayName := strings.TrimSpace(userInfo.Name)
@@ -425,25 +425,25 @@ func (h *Handler) resolveOAuthUser(ctx context.Context, provider string, userInf
 		avatar = pgtype.Text{String: userInfo.AvatarURL, Valid: true}
 	}
 
-	createdUser, err := h.db.CreateOAuthPengguna(ctx, db.CreateOAuthPenggunaParams{
+	createdUserID, err := h.db.CreateOAuthPengguna(ctx, db.CreateOAuthPenggunaParams{
 		Nama:           displayName,
 		Email:          userInfo.Email,
 		ProfilePicture: avatar,
 	})
 	if err != nil {
-		return 0, false, err
+		return 0, "", err
 	}
 
 	if err := h.db.LinkOAuthAccount(ctx, db.LinkOAuthAccountParams{
-		PenggunaID:     createdUser.ID,
+		PenggunaID:     createdUserID,
 		Provider:       provider,
 		ProviderUserID: userInfo.ID,
 		Email:          userInfo.Email,
 	}); err != nil {
-		return 0, false, err
+		return 0, "", err
 	}
 
-	return createdUser.ID, createdUser.Admin, nil
+	return createdUserID, "murid", nil
 }
 
 func (h *Handler) exchangeCode(ctx context.Context, provider OAuthProviderConfig, code, codeVerifier string) (string, error) {

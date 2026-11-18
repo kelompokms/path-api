@@ -1,5 +1,111 @@
 basePath: /
 definitions:
+  admin.AdminCreateKelasRequest:
+    properties:
+      deskripsi:
+        type: string
+      nama:
+        type: string
+      tahun_ajaran:
+        type: string
+      tingkat:
+        type: integer
+    required:
+    - nama
+    - tahun_ajaran
+    - tingkat
+    type: object
+  admin.AdminKelasResponse:
+    properties:
+      deskripsi:
+        example: Pemrograman Dasar
+        type: string
+      dibuat:
+        type: string
+      guru:
+        example: false
+        type: boolean
+      id:
+        example: 1
+        type: integer
+      kode_kelas:
+        example: ABC123
+        type: string
+      nama:
+        example: X PPLG 1
+        type: string
+      nama_pengampu:
+        example: Eko Kusnandar
+        type: string
+      pengampu:
+        example: 2
+        type: integer
+      tahun_ajaran:
+        example: 2026/2027
+        type: string
+      tingkat:
+        example: 10
+        type: integer
+    type: object
+  admin.AdminPenggunaItem:
+    properties:
+      email:
+        example: eko@example.com
+        type: string
+      id:
+        example: 2
+        type: integer
+      kelas:
+        items:
+          type: string
+        type: array
+      nama:
+        example: Eko Kusnandar
+        type: string
+      phone:
+        example: "08123456789"
+        type: string
+      profile_picture:
+        example: ""
+        type: string
+      role:
+        example: guru
+        type: string
+    type: object
+  admin.CreateKalenderAgendaRequest:
+    properties:
+      keterangan:
+        type: string
+      nama_kegiatan:
+        type: string
+      tanggal_mulai:
+        type: string
+      tanggal_selesai:
+        type: string
+    required:
+    - nama_kegiatan
+    - tanggal_mulai
+    type: object
+  admin.KalenderAgendaResponse:
+    properties:
+      dibuat:
+        type: string
+      id:
+        example: 1
+        type: integer
+      keterangan:
+        example: Pertemuan awal semester
+        type: string
+      nama_kegiatan:
+        example: Rapat Orang Tua
+        type: string
+      tanggal_mulai:
+        example: "2026-11-20"
+        type: string
+      tanggal_selesai:
+        example: "2026-11-21"
+        type: string
+    type: object
   admin.ListAdminResponse:
     properties:
       admin:
@@ -23,6 +129,20 @@ definitions:
       profile_picture:
         example: uploads/pfp/admin.jpg
         type: string
+      role:
+        example: admin
+        type: string
+    type: object
+  admin.ListGuruMuridResponse:
+    properties:
+      guru:
+        items:
+          $ref: '#/definitions/admin.AdminPenggunaItem'
+        type: array
+      murid:
+        items:
+          $ref: '#/definitions/admin.AdminPenggunaItem'
+        type: array
     type: object
   admin.ListGuruResponse:
     properties:
@@ -46,6 +166,21 @@ definitions:
         type: boolean
     required:
     - role_guru
+    type: object
+  admin.UpdatePengampuKelasRequest:
+    properties:
+      pengampu_id:
+        type: integer
+    type: object
+  admin.UpdateRolePenggunaRequest:
+    properties:
+      penggunaID:
+        type: integer
+      role:
+        type: string
+    required:
+    - penggunaID
+    - role
     type: object
   auth.LoginRequest:
     properties:
@@ -194,6 +329,9 @@ definitions:
     type: object
   pengguna.GetPenggunaSuccessResponse:
     properties:
+      admin:
+        example: false
+        type: boolean
       email:
         example: johndoe@example.com
         type: string
@@ -205,6 +343,9 @@ definitions:
         type: string
       profile_picture:
         example: joe_mama.jpg
+        type: string
+      role:
+        example: murid
         type: string
       username:
         example: John Doe
@@ -497,6 +638,287 @@ paths:
       summary: List Admin
       tags:
       - Admin
+  /admin/kalender/agenda:
+    post:
+      consumes:
+      - application/json
+      description: Menambahkan satu kegiatan kalender akademik beserta keterangan
+        agar dapat dilihat semua pengguna (khusus admin)
+      parameters:
+      - description: Agenda Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.CreateKalenderAgendaRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/admin.KalenderAgendaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Tambah Agenda Kalender Akademik
+      tags:
+      - Admin
+  /admin/kelas:
+    get:
+      description: Mendapatkan daftar seluruh kelas sekolah dengan filter tahun_ajaran,
+        tingkat, dan nama (khusus admin)
+      parameters:
+      - description: Filter tahun ajaran
+        in: query
+        name: tahun_ajaran
+        type: string
+      - description: Filter tingkat kelas
+        in: query
+        name: tingkat
+        type: integer
+      - description: Filter nama kelas
+        in: query
+        name: nama
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.AdminKelasResponse'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Semua Kelas (Admin)
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Membuat satu kelas baru dengan pengampu default null (khusus admin)
+      parameters:
+      - description: Data kelas baru
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.AdminCreateKelasRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Buat Kelas Manual (Admin)
+      tags:
+      - Admin
+  /admin/kelas/{kode_kelas}/pengampu:
+    patch:
+      consumes:
+      - application/json
+      description: Menetapkan atau mengubah pengampu utama kelas dari daftar pengguna
+        ber-role guru (khusus admin)
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: ID guru pengampu (null untuk mengosongkan)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UpdatePengampuKelasRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Ubah Pengampu Kelas (Admin)
+      tags:
+      - Admin
+  /admin/kelas/csv:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'Mengunggah file CSV (kolom: nama,tingkat,tahun_ajaran,deskripsi)
+        untuk membuat banyak kelas dengan pengampu default null (khusus admin)'
+      parameters:
+      - description: File CSV daftar kelas
+        in: formData
+        name: file_csv
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Buat Banyak Kelas dari CSV (Admin)
+      tags:
+      - Admin
+  /admin/pengguna:
+    get:
+      description: Mendapatkan daftar semua guru dan murid beserta kelas terkait (khusus
+        admin)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.ListGuruMuridResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Semua Guru dan Murid
+      tags:
+      - Admin
+  /admin/pengguna/{pengguna_id}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Mengubah role universal pengguna antara guru dan murid pada tabel
+        role_pengguna (khusus admin)
+      parameters:
+      - description: ID Pengguna
+        in: path
+        name: pengguna_id
+        required: true
+        type: integer
+      - description: Role baru (guru atau murid)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UpdateRolePenggunaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Ubah Role Pengguna (Guru/Murid)
+      tags:
+      - Admin
   /auth/oauth/{provider}:
     get:
       description: Mengalihkan pengguna ke halaman persetujuan OAuth2 provider (google
@@ -643,6 +1065,30 @@ paths:
       summary: List Guru
       tags:
       - Admin
+  /kalender:
+    get:
+      description: Mendapatkan seluruh kegiatan dan agenda pada kalender akademik
+        untuk semua pengguna
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/admin.KalenderAgendaResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: List Agenda Kalender Akademik
+      tags:
+      - Kalender
   /kelas:
     get:
       consumes:
@@ -681,7 +1127,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Buat Kelas menggunakan nama dan tingkat dan mengembalikan message
+      description: Membuat kelas baru dengan pengampu default null (khusus admin)
       parameters:
       - description: Create Kelas Request Payload
         in: body
@@ -692,8 +1138,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
         "400":
@@ -702,6 +1148,10 @@ paths:
             $ref: '#/definitions/utils.HTTPResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/utils.HTTPResponse'
         "500":

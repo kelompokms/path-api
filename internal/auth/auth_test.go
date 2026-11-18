@@ -44,7 +44,7 @@ func TestRegister(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnError(pgx.ErrNoRows)
-		mockPool.ExpectQuery("INSERT").WithArgs("John Doe", "john@example.com", pgxmock.AnyArg(), false).WillReturnRows(
+		mockPool.ExpectQuery("INSERT").WithArgs("John Doe", "john@example.com", pgxmock.AnyArg(), "murid").WillReturnRows(
 			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
 		)
 
@@ -69,7 +69,7 @@ func TestRegister(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), pgtype.Text{String: "hashed", Valid: true}, false),
+			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(1), pgtype.Text{String: "hashed", Valid: true}, "murid"),
 		)
 
 		err := h.Register(c)
@@ -108,7 +108,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, false),
+			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid"),
 		)
 
 		err := h.Login(c)
@@ -131,7 +131,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, false),
+			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid"),
 		)
 
 		err := h.Login(c)
@@ -156,7 +156,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("oauth@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "admin"}).AddRow(int32(2), pgtype.Text{Valid: false}, false),
+			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(2), pgtype.Text{Valid: false}, "murid"),
 		)
 
 		err := h.Login(c)

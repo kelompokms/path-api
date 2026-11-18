@@ -1,10 +1,13 @@
 -- name: CreatePengguna :one
-INSERT INTO pengguna (nama, email, password, admin)
-VALUES ($1, $2, $3, $4)
+INSERT INTO pengguna (nama, email, password, id_role_pengguna)
+SELECT $1, $2, $3, rp.id FROM role_pengguna rp WHERE rp.nama = sqlc.arg(role)::text
 RETURNING id;
 
 -- name: ListAdmin :many
-SELECT * FROM pengguna WHERE admin = TRUE;
+SELECT p.id, p.nama, p.email, p.phone, p.profile_picture, p.password, p.id_role_pengguna, rp.nama AS role, p.dibuat
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE rp.nama = 'admin';
 
 -- name: ListGuru :many
 SELECT
@@ -17,17 +20,62 @@ JOIN pengguna ON pengguna_id = pengguna.id
 JOIN kelas ON kelas_id = kelas.id
 WHERE guru = TRUE;
 
+-- name: ListAllGuru :many
+SELECT
+    p.id,
+    p.nama,
+    p.email,
+    COALESCE(p.phone, '')::text AS phone,
+    COALESCE(p.profile_picture, '')::text AS profile_picture,
+    COALESCE(ARRAY_AGG(DISTINCT k.nama) FILTER (WHERE k.id IS NOT NULL), '{}')::text[] AS kelas
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+LEFT JOIN anggota_kelas ak ON ak.pengguna_id = p.id AND ak.guru = TRUE
+LEFT JOIN kelas k ON k.pengampu = p.id OR k.id = ak.kelas_id
+WHERE rp.nama = 'guru'
+GROUP BY p.id
+ORDER BY p.nama ASC;
+
+-- name: ListAllMurid :many
+SELECT
+    p.id,
+    p.nama,
+    p.email,
+    COALESCE(p.phone, '')::text AS phone,
+    COALESCE(p.profile_picture, '')::text AS profile_picture,
+    COALESCE(ARRAY_AGG(DISTINCT k.nama) FILTER (WHERE k.id IS NOT NULL), '{}')::text[] AS kelas
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+LEFT JOIN anggota_kelas ak ON ak.pengguna_id = p.id
+LEFT JOIN kelas k ON k.id = ak.kelas_id
+WHERE rp.nama = 'murid'
+GROUP BY p.id
+ORDER BY p.nama ASC;
+
 -- name: IsGuru :one
 SELECT TRUE FROM anggota_kelas WHERE pengguna_id = $1 AND guru = TRUE LIMIT 1;
 
 -- name: GetPengguna :one
-SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1;
+SELECT p.id, p.nama, p.email, p.phone, p.profile_picture, rp.nama AS role, (rp.nama = 'admin')::boolean AS admin
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE p.id = $1 LIMIT 1;
+
+-- name: GetPenggunaRoleByID :one
+SELECT p.id, rp.nama AS role
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE p.id = $1 LIMIT 1;
 
 -- name: UpdatePengguna :one
 SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1;
 
--- name: UpdateRolePengguna :exec
-UPDATE pengguna SET admin = $2 WHERE id = $1;
+-- name: UpdateRolePengguna :execrows
+UPDATE pengguna
+SET id_role_pengguna = rp.id
+FROM role_pengguna rp
+WHERE pengguna.id = sqlc.arg(id)
+  AND rp.nama = sqlc.arg(role)::text;
 
 -- name: UpdatePasswordPengguna :exec
 UPDATE pengguna SET password = $2 WHERE id = $1;

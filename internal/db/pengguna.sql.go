@@ -12,8 +12,8 @@ import (
 )
 
 const createPengguna = `-- name: CreatePengguna :one
-INSERT INTO pengguna (nama, email, password, admin)
-VALUES ($1, $2, $3, $4)
+INSERT INTO pengguna (nama, email, password, id_role_pengguna)
+SELECT $1, $2, $3, rp.id FROM role_pengguna rp WHERE rp.nama = $4::text
 RETURNING id
 `
 
@@ -21,7 +21,7 @@ type CreatePenggunaParams struct {
 	Nama     string      `json:"nama"`
 	Email    string      `json:"email"`
 	Password pgtype.Text `json:"password"`
-	Admin    bool        `json:"admin"`
+	Role     string      `json:"role"`
 }
 
 func (q *Queries) CreatePengguna(ctx context.Context, arg CreatePenggunaParams) (int32, error) {
@@ -29,7 +29,7 @@ func (q *Queries) CreatePengguna(ctx context.Context, arg CreatePenggunaParams) 
 		arg.Nama,
 		arg.Email,
 		arg.Password,
-		arg.Admin,
+		arg.Role,
 	)
 	var id int32
 	err := row.Scan(&id)
@@ -37,7 +37,10 @@ func (q *Queries) CreatePengguna(ctx context.Context, arg CreatePenggunaParams) 
 }
 
 const getPengguna = `-- name: GetPengguna :one
-SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1
+SELECT p.id, p.nama, p.email, p.phone, p.profile_picture, rp.nama AS role, (rp.nama = 'admin')::boolean AS admin
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE p.id = $1 LIMIT 1
 `
 
 type GetPenggunaRow struct {
@@ -46,6 +49,8 @@ type GetPenggunaRow struct {
 	Email          string      `json:"email"`
 	Phone          pgtype.Text `json:"phone"`
 	ProfilePicture pgtype.Text `json:"profile_picture"`
+	Role           string      `json:"role"`
+	Admin          bool        `json:"admin"`
 }
 
 func (q *Queries) GetPengguna(ctx context.Context, id int32) (GetPenggunaRow, error) {
@@ -57,7 +62,28 @@ func (q *Queries) GetPengguna(ctx context.Context, id int32) (GetPenggunaRow, er
 		&i.Email,
 		&i.Phone,
 		&i.ProfilePicture,
+		&i.Role,
+		&i.Admin,
 	)
+	return i, err
+}
+
+const getPenggunaRoleByID = `-- name: GetPenggunaRoleByID :one
+SELECT p.id, rp.nama AS role
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE p.id = $1 LIMIT 1
+`
+
+type GetPenggunaRoleByIDRow struct {
+	ID   int32  `json:"id"`
+	Role string `json:"role"`
+}
+
+func (q *Queries) GetPenggunaRoleByID(ctx context.Context, id int32) (GetPenggunaRoleByIDRow, error) {
+	row := q.db.QueryRow(ctx, getPenggunaRoleByID, id)
+	var i GetPenggunaRoleByIDRow
+	err := row.Scan(&i.ID, &i.Role)
 	return i, err
 }
 
@@ -73,18 +99,33 @@ func (q *Queries) IsGuru(ctx context.Context, penggunaID int32) (bool, error) {
 }
 
 const listAdmin = `-- name: ListAdmin :many
-SELECT id, nama, email, phone, profile_picture, password, admin, dibuat FROM pengguna WHERE admin = TRUE
+SELECT p.id, p.nama, p.email, p.phone, p.profile_picture, p.password, p.id_role_pengguna, rp.nama AS role, p.dibuat
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+WHERE rp.nama = 'admin'
 `
 
-func (q *Queries) ListAdmin(ctx context.Context) ([]Pengguna, error) {
+type ListAdminRow struct {
+	ID             int32            `json:"id"`
+	Nama           string           `json:"nama"`
+	Email          string           `json:"email"`
+	Phone          pgtype.Text      `json:"phone"`
+	ProfilePicture pgtype.Text      `json:"profile_picture"`
+	Password       pgtype.Text      `json:"password"`
+	IDRolePengguna int32            `json:"id_role_pengguna"`
+	Role           string           `json:"role"`
+	Dibuat         pgtype.Timestamp `json:"dibuat"`
+}
+
+func (q *Queries) ListAdmin(ctx context.Context) ([]ListAdminRow, error) {
 	rows, err := q.db.Query(ctx, listAdmin)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Pengguna
+	var items []ListAdminRow
 	for rows.Next() {
-		var i Pengguna
+		var i ListAdminRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Nama,
@@ -92,8 +133,115 @@ func (q *Queries) ListAdmin(ctx context.Context) ([]Pengguna, error) {
 			&i.Phone,
 			&i.ProfilePicture,
 			&i.Password,
-			&i.Admin,
+			&i.IDRolePengguna,
+			&i.Role,
 			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllGuru = `-- name: ListAllGuru :many
+SELECT
+    p.id,
+    p.nama,
+    p.email,
+    COALESCE(p.phone, '')::text AS phone,
+    COALESCE(p.profile_picture, '')::text AS profile_picture,
+    COALESCE(ARRAY_AGG(DISTINCT k.nama) FILTER (WHERE k.id IS NOT NULL), '{}')::text[] AS kelas
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+LEFT JOIN anggota_kelas ak ON ak.pengguna_id = p.id AND ak.guru = TRUE
+LEFT JOIN kelas k ON k.pengampu = p.id OR k.id = ak.kelas_id
+WHERE rp.nama = 'guru'
+GROUP BY p.id
+ORDER BY p.nama ASC
+`
+
+type ListAllGuruRow struct {
+	ID             int32    `json:"id"`
+	Nama           string   `json:"nama"`
+	Email          string   `json:"email"`
+	Phone          string   `json:"phone"`
+	ProfilePicture string   `json:"profile_picture"`
+	Kelas          []string `json:"kelas"`
+}
+
+func (q *Queries) ListAllGuru(ctx context.Context) ([]ListAllGuruRow, error) {
+	rows, err := q.db.Query(ctx, listAllGuru)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllGuruRow
+	for rows.Next() {
+		var i ListAllGuruRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nama,
+			&i.Email,
+			&i.Phone,
+			&i.ProfilePicture,
+			&i.Kelas,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllMurid = `-- name: ListAllMurid :many
+SELECT
+    p.id,
+    p.nama,
+    p.email,
+    COALESCE(p.phone, '')::text AS phone,
+    COALESCE(p.profile_picture, '')::text AS profile_picture,
+    COALESCE(ARRAY_AGG(DISTINCT k.nama) FILTER (WHERE k.id IS NOT NULL), '{}')::text[] AS kelas
+FROM pengguna p
+JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
+LEFT JOIN anggota_kelas ak ON ak.pengguna_id = p.id
+LEFT JOIN kelas k ON k.id = ak.kelas_id
+WHERE rp.nama = 'murid'
+GROUP BY p.id
+ORDER BY p.nama ASC
+`
+
+type ListAllMuridRow struct {
+	ID             int32    `json:"id"`
+	Nama           string   `json:"nama"`
+	Email          string   `json:"email"`
+	Phone          string   `json:"phone"`
+	ProfilePicture string   `json:"profile_picture"`
+	Kelas          []string `json:"kelas"`
+}
+
+func (q *Queries) ListAllMurid(ctx context.Context) ([]ListAllMuridRow, error) {
+	rows, err := q.db.Query(ctx, listAllMurid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllMuridRow
+	for rows.Next() {
+		var i ListAllMuridRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Nama,
+			&i.Email,
+			&i.Phone,
+			&i.ProfilePicture,
+			&i.Kelas,
 		); err != nil {
 			return nil, err
 		}
@@ -278,16 +426,23 @@ func (q *Queries) UpdateProfilePicturePengguna(ctx context.Context, arg UpdatePr
 	return i, err
 }
 
-const updateRolePengguna = `-- name: UpdateRolePengguna :exec
-UPDATE pengguna SET admin = $2 WHERE id = $1
+const updateRolePengguna = `-- name: UpdateRolePengguna :execrows
+UPDATE pengguna
+SET id_role_pengguna = rp.id
+FROM role_pengguna rp
+WHERE pengguna.id = $1
+  AND rp.nama = $2::text
 `
 
 type UpdateRolePenggunaParams struct {
-	ID    int32 `json:"id"`
-	Admin bool  `json:"admin"`
+	ID   int32  `json:"id"`
+	Role string `json:"role"`
 }
 
-func (q *Queries) UpdateRolePengguna(ctx context.Context, arg UpdateRolePenggunaParams) error {
-	_, err := q.db.Exec(ctx, updateRolePengguna, arg.ID, arg.Admin)
-	return err
+func (q *Queries) UpdateRolePengguna(ctx context.Context, arg UpdateRolePenggunaParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateRolePengguna, arg.ID, arg.Role)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

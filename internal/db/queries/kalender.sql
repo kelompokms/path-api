@@ -1,6 +1,6 @@
 -- name: CreateKegiatanKalender :one
-INSERT INTO kalender_akademik (nama_kegiatan, tanggal_mulai, tanggal_selesai)
-VALUES ($1, $2, $3)
+INSERT INTO kalender_akademik (nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: ListKegiatanKalender :many

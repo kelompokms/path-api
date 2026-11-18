@@ -51,13 +51,14 @@ func (h *Handler) Register(c *echo.Context) error {
 		Nama:     req.Nama,
 		Email:    req.Email,
 		Password: pgtype.Text{String: string(hashedPassword), Valid: true},
+		Role:     "murid",
 	})
 	if err != nil {
 		log.Println("Error insert pengguna:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses register")
 	}
 
-	token, err := utils.NewToken(userID, false)
+	token, err := utils.NewTokenWithRole(userID, "murid")
 	if err != nil {
 		log.Println("Error membuat token:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "gagal memproses register")
@@ -108,7 +109,7 @@ func (h *Handler) Login(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username atau password salah")
 	}
 
-	token, err := utils.NewToken(pengguna.ID, pengguna.Admin)
+	token, err := utils.NewTokenWithRole(pengguna.ID, pengguna.Role)
 	if err != nil {
 		log.Println("Error membuat token:", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memproses login")

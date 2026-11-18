@@ -63,6 +63,423 @@
                 }
             }
         },
+        "/admin/kalender/agenda": {
+            "post": {
+                "description": "Menambahkan satu kegiatan kalender akademik beserta keterangan agar dapat dilihat semua pengguna (khusus admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Tambah Agenda Kalender Akademik",
+                "parameters": [
+                    {
+                        "description": "Agenda Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.CreateKalenderAgendaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/admin.KalenderAgendaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/kelas": {
+            "get": {
+                "description": "Mendapatkan daftar seluruh kelas sekolah dengan filter tahun_ajaran, tingkat, dan nama (khusus admin)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List Semua Kelas (Admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter tahun ajaran",
+                        "name": "tahun_ajaran",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter tingkat kelas",
+                        "name": "tingkat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter nama kelas",
+                        "name": "nama",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/admin.AdminKelasResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Membuat satu kelas baru dengan pengampu default null (khusus admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Buat Kelas Manual (Admin)",
+                "parameters": [
+                    {
+                        "description": "Data kelas baru",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.AdminCreateKelasRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/kelas/csv": {
+            "post": {
+                "description": "Mengunggah file CSV (kolom: nama,tingkat,tahun_ajaran,deskripsi) untuk membuat banyak kelas dengan pengampu default null (khusus admin)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Buat Banyak Kelas dari CSV (Admin)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "File CSV daftar kelas",
+                        "name": "file_csv",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/kelas/{kode_kelas}/pengampu": {
+            "patch": {
+                "description": "Menetapkan atau mengubah pengampu utama kelas dari daftar pengguna ber-role guru (khusus admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Ubah Pengampu Kelas (Admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "ID guru pengampu (null untuk mengosongkan)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdatePengampuKelasRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/pengguna": {
+            "get": {
+                "description": "Mendapatkan daftar semua guru dan murid beserta kelas terkait (khusus admin)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List Semua Guru dan Murid",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/admin.ListGuruMuridResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/pengguna/{pengguna_id}/role": {
+            "patch": {
+                "description": "Mengubah role universal pengguna antara guru dan murid pada tabel role_pengguna (khusus admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Ubah Role Pengguna (Guru/Murid)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Pengguna",
+                        "name": "pengguna_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Role baru (guru atau murid)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.UpdateRolePenggunaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/oauth/{provider}": {
             "get": {
                 "description": "Mengalihkan pengguna ke halaman persetujuan OAuth2 provider (google atau discord) dengan PKCE dan state cookie bertanda tangan",
@@ -277,6 +694,41 @@
                 }
             }
         },
+        "/kalender": {
+            "get": {
+                "description": "Mendapatkan seluruh kegiatan dan agenda pada kalender akademik untuk semua pengguna",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kalender"
+                ],
+                "summary": "List Agenda Kalender Akademik",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/admin.KalenderAgendaResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/kelas": {
             "get": {
                 "description": "List kelas menggunakan Bearer Token dan mengembalikan response list kelas beserta status role guru",
@@ -329,7 +781,7 @@
                 }
             },
             "post": {
-                "description": "Buat Kelas menggunakan nama dan tingkat dan mengembalikan message",
+                "description": "Membuat kelas baru dengan pengampu default null (khusus admin)",
                 "consumes": [
                     "application/json"
                 ],
@@ -352,8 +804,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -366,6 +818,12 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/utils.HTTPResponse"
                         }
@@ -1670,6 +2128,156 @@
         }
     },
     "definitions": {
+        "admin.AdminCreateKelasRequest": {
+            "type": "object",
+            "required": [
+                "nama",
+                "tahun_ajaran",
+                "tingkat"
+            ],
+            "properties": {
+                "deskripsi": {
+                    "type": "string"
+                },
+                "nama": {
+                    "type": "string"
+                },
+                "tahun_ajaran": {
+                    "type": "string"
+                },
+                "tingkat": {
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.AdminKelasResponse": {
+            "type": "object",
+            "properties": {
+                "deskripsi": {
+                    "type": "string",
+                    "example": "Pemrograman Dasar"
+                },
+                "dibuat": {
+                    "type": "string"
+                },
+                "guru": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "kode_kelas": {
+                    "type": "string",
+                    "example": "ABC123"
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "X PPLG 1"
+                },
+                "nama_pengampu": {
+                    "type": "string",
+                    "example": "Eko Kusnandar"
+                },
+                "pengampu": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "tahun_ajaran": {
+                    "type": "string",
+                    "example": "2026/2027"
+                },
+                "tingkat": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "admin.AdminPenggunaItem": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "eko@example.com"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "kelas": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Eko Kusnandar"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "08123456789"
+                },
+                "profile_picture": {
+                    "type": "string",
+                    "example": ""
+                },
+                "role": {
+                    "type": "string",
+                    "example": "guru"
+                }
+            }
+        },
+        "admin.CreateKalenderAgendaRequest": {
+            "type": "object",
+            "required": [
+                "nama_kegiatan",
+                "tanggal_mulai"
+            ],
+            "properties": {
+                "keterangan": {
+                    "type": "string"
+                },
+                "nama_kegiatan": {
+                    "type": "string"
+                },
+                "tanggal_mulai": {
+                    "type": "string"
+                },
+                "tanggal_selesai": {
+                    "type": "string"
+                }
+            }
+        },
+        "admin.KalenderAgendaResponse": {
+            "type": "object",
+            "properties": {
+                "dibuat": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "keterangan": {
+                    "type": "string",
+                    "example": "Pertemuan awal semester"
+                },
+                "nama_kegiatan": {
+                    "type": "string",
+                    "example": "Rapat Orang Tua"
+                },
+                "tanggal_mulai": {
+                    "type": "string",
+                    "example": "2026-11-20"
+                },
+                "tanggal_selesai": {
+                    "type": "string",
+                    "example": "2026-11-21"
+                }
+            }
+        },
         "admin.ListAdminResponse": {
             "type": "object",
             "properties": {
@@ -1700,6 +2308,27 @@
                 "profile_picture": {
                     "type": "string",
                     "example": "uploads/pfp/admin.jpg"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "admin"
+                }
+            }
+        },
+        "admin.ListGuruMuridResponse": {
+            "type": "object",
+            "properties": {
+                "guru": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.AdminPenggunaItem"
+                    }
+                },
+                "murid": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/admin.AdminPenggunaItem"
+                    }
                 }
             }
         },
@@ -1733,6 +2362,29 @@
                 "role_guru": {
                     "type": "boolean",
                     "example": true
+                }
+            }
+        },
+        "admin.UpdatePengampuKelasRequest": {
+            "type": "object",
+            "properties": {
+                "pengampu_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "admin.UpdateRolePenggunaRequest": {
+            "type": "object",
+            "required": [
+                "penggunaID",
+                "role"
+            ],
+            "properties": {
+                "penggunaID": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         },
@@ -1944,6 +2596,10 @@
         "pengguna.GetPenggunaSuccessResponse": {
             "type": "object",
             "properties": {
+                "admin": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "email": {
                     "type": "string",
                     "example": "johndoe@example.com"
@@ -1959,6 +2615,10 @@
                 "profile_picture": {
                     "type": "string",
                     "example": "joe_mama.jpg"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "murid"
                 },
                 "username": {
                     "type": "string",

@@ -29,7 +29,16 @@ func setAuthContext(c *echo.Context, userID int32, admin bool) {
 	c.Set("user", token)
 }
 
-var kelasColumns = []string{"id", "nama", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "deskripsi"}
+func setAuthContextWithRole(c *echo.Context, userID int32, role string) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &utils.JWTCustomClaims{
+		UserID: userID,
+		Admin:  role == "admin",
+		Role:   role,
+	})
+	c.Set("user", token)
+}
+
+var kelasColumns = []string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}
 var listKelasColumns = []string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "guru"}
 var anggotaColumns = []string{"pengguna_id", "nama", "email", "profile_picture", "guru", "dibuat"}
 
@@ -200,7 +209,7 @@ func TestGetKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		rows := pgxmock.NewRows(kelasColumns).
-			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Deskripsi kelas")
+			AddRow(int32(1), "Matematika", int16(10), "Deskripsi kelas", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true})
 
 		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(rows)
 
@@ -221,7 +230,7 @@ func TestGetKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		rows := pgxmock.NewRows(kelasColumns).
-			AddRow(int32(1), "Matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Deskripsi kelas")
+			AddRow(int32(1), "Matematika", int16(10), "Deskripsi kelas", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true})
 
 		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(rows)
 		mockPool.ExpectQuery("SELECT COALESCE").WithArgs(int32(1), int32(1)).WillReturnRows(
@@ -377,7 +386,7 @@ func TestCreateKelas(t *testing.T) {
 	e := echo.New()
 	e.Validator = utils.NewValidator()
 
-	t.Run("successful create", func(t *testing.T) {
+	t.Run("successful create by admin defaults pengampu to null", func(t *testing.T) {
 		reqBody := CreateKelasRequest{
 			Nama:        "Fisika",
 			Deskripsi:   "Fisika dasar",
@@ -390,16 +399,39 @@ func TestCreateKelas(t *testing.T) {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		setAuthContext(c, 1, false)
+		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Fisika", "Fisika dasar", int16(10), "2026/2027", pgtype.Int4{Int32: 1, Valid: true}, pgxmock.AnyArg()).
+			WithArgs("Fisika", "Fisika dasar", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := h.Create(c)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, rec.Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("forbidden when guru or murid tries to create kelas", func(t *testing.T) {
+		reqBody := CreateKelasRequest{
+			Nama:        "Fisika",
+			Tingkat:     10,
+			TahunAjaran: "2026/2027",
+		}
+		jsonBody, _ := json.Marshal(reqBody)
+
+		for _, role := range []string{"guru", "murid"} {
+			req := httptest.NewRequest(http.MethodPost, "/kelas", bytes.NewReader(jsonBody))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			setAuthContextWithRole(c, 2, role)
+
+			err := h.Create(c)
+			assert.Error(t, err)
+			httpErr, ok := err.(*echo.HTTPError)
+			require.True(t, ok)
+			assert.Equal(t, http.StatusForbidden, httpErr.Code)
+		}
 	})
 
 	t.Run("validation error when missing required fields", func(t *testing.T) {
@@ -413,7 +445,7 @@ func TestCreateKelas(t *testing.T) {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		setAuthContext(c, 1, false)
+		setAuthContext(c, 1, true)
 
 		err := h.Create(c)
 		assert.NoError(t, err)
@@ -432,10 +464,10 @@ func TestCreateKelas(t *testing.T) {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
-		setAuthContext(c, 1, false)
+		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Fisika", "", int16(10), "2026/2027", pgtype.Int4{Int32: 1, Valid: true}, pgxmock.AnyArg()).
+			WithArgs("Fisika", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnError(errors.New("db error"))
 
 		err := h.Create(c)
@@ -617,7 +649,7 @@ func TestUpdateKelas(t *testing.T) {
 			pgtype.Text{String: deskripsi, Valid: true},
 		).WillReturnRows(
 			pgxmock.NewRows(kelasColumns).
-				AddRow(int32(10), nama, int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, deskripsi),
+				AddRow(int32(10), nama, int16(10), deskripsi, "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}),
 		)
 
 		err := h.Update(c)
