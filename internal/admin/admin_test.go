@@ -767,3 +767,32 @@ func TestUpdatePengampuKelasAdmin(t *testing.T) {
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 }
+
+func TestAdminDibuatUsesGMT7(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	utcTime := time.Date(2026, 11, 18, 2, 16, 0, 0, time.UTC)
+	expectedWIB := `"dibuat":"2026-11-18T09:16:00+07:00"`
+
+	req := httptest.NewRequest(http.MethodGet, "/kalender", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setAuthContext(c, 1, true)
+
+	tgl := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	mockPool.ExpectQuery("SELECT").WillReturnRows(
+		pgxmock.NewRows([]string{"id", "nama_kegiatan", "keterangan", "tanggal_mulai", "tanggal_selesai", "dibuat"}).
+			AddRow(int32(1), "UTS", "Ujian", pgtype.Date{Time: tgl, Valid: true}, pgtype.Date{Time: tgl, Valid: true}, pgtype.Timestamp{Time: utcTime, Valid: true}),
+	)
+
+	require.NoError(t, h.ListKalenderAkademik(c))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), expectedWIB)
+	assert.NoError(t, mockPool.ExpectationsWereMet())
+}

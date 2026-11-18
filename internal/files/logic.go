@@ -15,7 +15,6 @@ import (
 	"path-api/internal/utils"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/labstack/echo/v5"
@@ -62,7 +61,7 @@ func SaveProfilePicture(userID int32, fh *multipart.FileHeader) (string, error) 
 	}
 
 	// 3. Build destination path: {root}/uploads/pfp/YYYY/MM/DD/
-	now := time.Now()
+	now := utils.NowGMT7()
 	relDir := filepath.Join(UploadRoot, "pfp",
 		now.Format("2006"), now.Format("01"), now.Format("02"))
 	if err := os.MkdirAll(relDir, 0o755); err != nil {
@@ -186,7 +185,7 @@ func savePostinganFile(fh *multipart.FileHeader) (UploadedPostinganFile, error) 
 	}
 
 	// Store under uploads/YYYY/MM/DD/<random>.<ext>.
-	now := time.Now()
+	now := utils.NowGMT7()
 	datePath := now.Format("2006/01/02")
 	diskDir := filepath.Join(UploadRoot, filepath.FromSlash(datePath))
 	if err := os.MkdirAll(diskDir, 0o755); err != nil {

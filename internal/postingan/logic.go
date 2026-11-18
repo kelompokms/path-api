@@ -46,7 +46,7 @@ func toPostinganResponse(
 		PenggunaID: penggunaID,
 		KelasID:    kelasID,
 		TipeID:     tipeID,
-		Dibuat:     dibuat.Time,
+		Dibuat:     utils.ToGMT7(dibuat.Time),
 	}
 }
 
@@ -320,7 +320,7 @@ func toPengumpulanResponse(row db.PengumpulanTuga) PengumpulanResponse {
 	}
 	var dibuat *time.Time
 	if row.Dibuat.Valid {
-		t := row.Dibuat.Time
+		t := utils.ToGMT7(row.Dibuat.Time)
 		dibuat = &t
 	}
 	return PengumpulanResponse{
@@ -461,7 +461,7 @@ func (h *Handler) ListPengumpulan(c *echo.Context) error {
 			Email:          row.Email,
 			ProfilePicture: row.ProfilePicture.String,
 			Lampiran:       lampiran,
-			Dibuat:         row.Dibuat.Time,
+			Dibuat:         utils.ToGMT7(row.Dibuat.Time),
 		})
 	}
 

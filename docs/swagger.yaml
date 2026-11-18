@@ -112,7 +112,7 @@ definitions:
         example: true
         type: boolean
       dibuat:
-        example: "2026-01-01T00:00:00Z"
+        example: "2026-01-01T07:00:00+07:00"
         type: string
       email:
         example: admin@example.com
@@ -240,7 +240,7 @@ definitions:
   kelas.AnggotaKelasResponse:
     properties:
       dibuat:
-        example: "2026-11-16T08:00:00Z"
+        example: "2026-11-16T15:00:00+07:00"
         type: string
       email:
         example: budi@example.com
@@ -282,7 +282,7 @@ definitions:
         example: Belajar algoritma dan struktur data
         type: string
       dibuat:
-        example: 2006-01-02T15:04:05Z07:00
+        example: "2026-01-01T07:00:00+07:00"
         type: string
       guru:
         example: true
@@ -442,7 +442,7 @@ definitions:
   postingan.PengumpulanItemResponse:
     properties:
       dibuat:
-        example: "2026-01-01T00:00:00Z"
+        example: "2026-01-01T07:00:00+07:00"
         type: string
       email:
         example: budi@example.com
@@ -472,7 +472,7 @@ definitions:
   postingan.PengumpulanResponse:
     properties:
       dibuat:
-        example: "2026-01-01T00:00:00Z"
+        example: "2026-01-01T07:00:00+07:00"
         type: string
       id:
         example: 1
@@ -499,7 +499,7 @@ definitions:
         example: Pelajari materi berikut
         type: string
       dibuat:
-        example: "2026-01-01T00:00:00Z"
+        example: "2026-01-01T07:00:00+07:00"
         type: string
       id:
         example: 1

@@ -2293,7 +2293,7 @@ const docTemplate = `{
                 },
                 "dibuat": {
                     "type": "string",
-                    "example": "2026-01-01T00:00:00Z"
+                    "example": "2026-01-01T07:00:00+07:00"
                 },
                 "email": {
                     "type": "string",
@@ -2477,7 +2477,7 @@ const docTemplate = `{
             "properties": {
                 "dibuat": {
                     "type": "string",
-                    "example": "2026-11-16T08:00:00Z"
+                    "example": "2026-11-16T15:00:00+07:00"
                 },
                 "email": {
                     "type": "string",
@@ -2536,7 +2536,7 @@ const docTemplate = `{
                 },
                 "dibuat": {
                     "type": "string",
-                    "example": "2006-01-02T15:04:05Z07:00"
+                    "example": "2026-01-01T07:00:00+07:00"
                 },
                 "guru": {
                     "type": "boolean",
@@ -2765,7 +2765,7 @@ const docTemplate = `{
             "properties": {
                 "dibuat": {
                     "type": "string",
-                    "example": "2026-01-01T00:00:00Z"
+                    "example": "2026-01-01T07:00:00+07:00"
                 },
                 "email": {
                     "type": "string",
@@ -2807,7 +2807,7 @@ const docTemplate = `{
             "properties": {
                 "dibuat": {
                     "type": "string",
-                    "example": "2026-01-01T00:00:00Z"
+                    "example": "2026-01-01T07:00:00+07:00"
                 },
                 "id": {
                     "type": "integer",
@@ -2845,7 +2845,7 @@ const docTemplate = `{
                 },
                 "dibuat": {
                     "type": "string",
-                    "example": "2026-01-01T00:00:00Z"
+                    "example": "2026-01-01T07:00:00+07:00"
                 },
                 "id": {
                     "type": "integer",

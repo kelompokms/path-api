@@ -43,7 +43,7 @@ type PostinganResponse struct {
 	PenggunaID int32     `json:"pengguna_id" example:"1"`
 	KelasID    int32     `json:"kelas_id" example:"1"`
 	TipeID     int32     `json:"tipe_id" example:"1"`
-	Dibuat     time.Time `json:"dibuat" example:"2026-01-01T00:00:00Z"`
+	Dibuat     time.Time `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
 }
 
 type TipePostinganResponse struct {
@@ -68,7 +68,7 @@ type PengumpulanResponse struct {
 	PenggunaID  int32      `json:"pengguna_id" example:"2"`
 	Submitted   bool       `json:"submitted" example:"true"`
 	Lampiran    []string   `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
-	Dibuat      *time.Time `json:"dibuat,omitempty" example:"2026-01-01T00:00:00Z"`
+	Dibuat      *time.Time `json:"dibuat,omitempty" example:"2026-01-01T07:00:00+07:00"`
 }
 
 type PengumpulanItemResponse struct {
@@ -79,7 +79,7 @@ type PengumpulanItemResponse struct {
 	Email          string    `json:"email" example:"budi@example.com"`
 	ProfilePicture string    `json:"profile_picture" example:"uploads/pfp/2026/11/10/user2_abc.jpg"`
 	Lampiran       []string  `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
-	Dibuat         time.Time `json:"dibuat" example:"2026-01-01T00:00:00Z"`
+	Dibuat         time.Time `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
 }
 
 type TarikPengumpulanResponse struct {

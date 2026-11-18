@@ -41,20 +41,20 @@ type ListKelasResponse struct {
 	TahunAjaran string    `json:"tahun_ajaran" example:"2026/2027"`
 	Pengampu    int32     `json:"pengampu" example:"1"`
 	KodeKelas   string    `json:"kode_kelas" example:"A18D23"`
-	Dibuat      time.Time `json:"dibuat" example:"2006-01-02T15:04:05Z07:00"`
+	Dibuat      time.Time `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
 	Guru        bool      `json:"guru" example:"true"`
 }
 
 type DetailKelasResponse struct {
-	ID          int32            `json:"id"`
-	Nama        string           `json:"nama"`
-	Deskripsi   string           `json:"deskripsi"`
-	Tingkat     int16            `json:"tingkat"`
-	TahunAjaran string           `json:"tahun_ajaran"`
-	KodeKelas   string           `json:"kode_kelas"`
-	Dibuat      pgtype.Timestamp `json:"dibuat"`
-	Pengampu    pgtype.Int4      `json:"pengampu"`
-	Guru        bool             `json:"guru"`
+	ID          int32       `json:"id"`
+	Nama        string      `json:"nama"`
+	Deskripsi   string      `json:"deskripsi"`
+	Tingkat     int16       `json:"tingkat"`
+	TahunAjaran string      `json:"tahun_ajaran"`
+	KodeKelas   string      `json:"kode_kelas"`
+	Dibuat      time.Time   `json:"dibuat"`
+	Pengampu    pgtype.Int4 `json:"pengampu"`
+	Guru        bool        `json:"guru"`
 }
 
 type AnggotaKelasResponse struct {
@@ -64,7 +64,7 @@ type AnggotaKelasResponse struct {
 	ProfilePicture string    `json:"profile_picture" example:"uploads/pfp/2026/11/10/user2_abc.jpg"`
 	Guru           bool      `json:"guru" example:"false"`
 	Role           string    `json:"role" example:"murid"`
-	Dibuat         time.Time `json:"dibuat" example:"2026-11-16T08:00:00Z"`
+	Dibuat         time.Time `json:"dibuat" example:"2026-11-16T15:00:00+07:00"`
 }
 
 type KodeKelasRequest struct {

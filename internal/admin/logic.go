@@ -142,7 +142,7 @@ func (h *Handler) ListAdmin(c *echo.Context) error {
 			ProfilePicture: r.ProfilePicture.String,
 			Role:           r.Role,
 			Admin:          true,
-			Dibuat:         r.Dibuat.Time,
+			Dibuat:         utils.ToGMT7(r.Dibuat.Time),
 		})
 	}
 
@@ -270,7 +270,7 @@ func (h *Handler) ListKelas(c *echo.Context) error {
 			Tingkat:      r.Tingkat,
 			TahunAjaran:  r.TahunAjaran,
 			KodeKelas:    r.KodeKelas,
-			Dibuat:       r.Dibuat.Time,
+			Dibuat:       utils.ToGMT7(r.Dibuat.Time),
 			Pengampu:     pengampu,
 			NamaPengampu: r.NamaPengampu,
 			Guru:         false,
@@ -653,7 +653,7 @@ func toKalenderAgendaResponse(item db.KalenderAkademik) KalenderAgendaResponse {
 		Keterangan:     item.Keterangan,
 		TanggalMulai:   item.TanggalMulai.Time.Format("2006-01-02"),
 		TanggalSelesai: item.TanggalSelesai.Time.Format("2006-01-02"),
-		Dibuat:         item.Dibuat.Time,
+		Dibuat:         utils.ToGMT7(item.Dibuat.Time),
 	}
 }
 

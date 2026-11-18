@@ -3,6 +3,7 @@ services:
     api:
         build: .
         environment:
+            - TZ=Asia/Jakarta
             - HOST_PORT=${HOST_PORT}
             - DATABASE_URL=host=db user=${DOCKER_POSTGRES_USER} password=${DOCKER_POSTGRES_PASSWORD} dbname=${DOCKER_POSTGRES_DB}
             - SECRET=${SECRET}

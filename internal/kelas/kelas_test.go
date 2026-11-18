@@ -907,3 +907,44 @@ func TestPromoteGuru(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 	})
 }
+
+func TestKelasDibuatUsesGMT7(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	utcTime := time.Date(2026, 11, 18, 2, 16, 0, 0, time.UTC)
+	expectedWIB := `"dibuat":"2026-11-18T09:16:00+07:00"`
+
+	req := httptest.NewRequest(http.MethodGet, "/kelas", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setAuthContext(c, 1, false)
+
+	mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(
+		pgxmock.NewRows(listKelasColumns).
+			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", pgtype.Timestamp{Time: utcTime, Valid: true}, pgtype.Int4{}, false),
+	)
+
+	require.NoError(t, h.List(c))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), expectedWIB)
+
+	getReq := httptest.NewRequest(http.MethodGet, "/kelas/ABC123", nil)
+	getRec := httptest.NewRecorder()
+	getCtx := e.NewContext(getReq, getRec)
+	getCtx.SetPathValues(echo.PathValues{{Name: "kode_kelas", Value: "ABC123"}})
+	mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(
+		pgxmock.NewRows(kelasColumns).
+			AddRow(int32(1), "Matematika", int16(10), "Deskripsi", "2026/2027", "ABC123", pgtype.Timestamp{Time: utcTime, Valid: true}, pgtype.Int4{}),
+	)
+
+	require.NoError(t, h.Get(getCtx))
+	assert.Equal(t, http.StatusOK, getRec.Code)
+	assert.Contains(t, getRec.Body.String(), expectedWIB)
+	assert.NoError(t, mockPool.ExpectationsWereMet())
+}

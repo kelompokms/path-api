@@ -35,7 +35,7 @@ type ListAdminResponse struct {
 	ProfilePicture string    `json:"profile_picture" example:"uploads/pfp/admin.jpg"`
 	Role           string    `json:"role" example:"admin"`
 	Admin          bool      `json:"admin" example:"true"`
-	Dibuat         time.Time `json:"dibuat" example:"2026-01-01T00:00:00Z"`
+	Dibuat         time.Time `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
 }
 
 type ListGuruResponse struct {

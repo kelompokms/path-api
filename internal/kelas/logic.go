@@ -51,12 +51,22 @@ func (h *Handler) List(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar kelas")
 	}
 
-	kelas := make([]db.ListKelasRow, 0, len(rows))
+	kelas := make([]DetailKelasResponse, 0, len(rows))
 	for _, row := range rows {
 		if filterByGuru != nil && row.Guru != *filterByGuru {
 			continue
 		}
-		kelas = append(kelas, row)
+		kelas = append(kelas, DetailKelasResponse{
+			ID:          row.ID,
+			Nama:        row.Nama,
+			Deskripsi:   row.Deskripsi,
+			Tingkat:     row.Tingkat,
+			TahunAjaran: row.TahunAjaran,
+			KodeKelas:   row.KodeKelas,
+			Dibuat:      utils.ToGMT7(row.Dibuat.Time),
+			Pengampu:    row.Pengampu,
+			Guru:        row.Guru,
+		})
 	}
 
 	return c.JSON(http.StatusOK, kelas)
@@ -109,7 +119,7 @@ func (h *Handler) Get(c *echo.Context) error {
 		Tingkat:     kelas.Tingkat,
 		TahunAjaran: kelas.TahunAjaran,
 		KodeKelas:   kelas.KodeKelas,
-		Dibuat:      kelas.Dibuat,
+		Dibuat:      utils.ToGMT7(kelas.Dibuat.Time),
 		Pengampu:    kelas.Pengampu,
 		Guru:        isGuru,
 	})
@@ -208,7 +218,7 @@ func (h *Handler) Update(c *echo.Context) error {
 		Tingkat:     updated.Tingkat,
 		TahunAjaran: updated.TahunAjaran,
 		KodeKelas:   updated.KodeKelas,
-		Dibuat:      updated.Dibuat,
+		Dibuat:      utils.ToGMT7(updated.Dibuat.Time),
 		Pengampu:    updated.Pengampu,
 		Guru:        true,
 	})
@@ -346,7 +356,7 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 			ProfilePicture: row.ProfilePicture.String,
 			Guru:           row.Guru,
 			Role:           role,
-			Dibuat:         row.Dibuat.Time,
+			Dibuat:         utils.ToGMT7(row.Dibuat.Time),
 		})
 	}
 
