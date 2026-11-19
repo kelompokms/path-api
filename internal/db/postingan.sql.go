@@ -114,8 +114,10 @@ func (q *Queries) DeletePengumpulanTugas(ctx context.Context, arg DeletePengumpu
 const getPengumpulanTugas = `-- name: GetPengumpulanTugas :one
 SELECT id, postingan_id, pengguna_id, lampiran, dibuat
 FROM pengumpulan_tugas
-WHERE postingan_id = $1 AND pengguna_id = $2
-ORDER BY id DESC
+WHERE pengumpulan_tugas.postingan_id = $1
+  AND pengumpulan_tugas.pengguna_id = $2
+  AND EXISTS (SELECT 1 FROM pengguna u WHERE u.id = pengumpulan_tugas.pengguna_id AND u.aktif = TRUE)
+ORDER BY pengumpulan_tugas.id DESC
 LIMIT 1
 `
 
@@ -140,7 +142,9 @@ func (q *Queries) GetPengumpulanTugas(ctx context.Context, arg GetPengumpulanTug
 const getPostinganByID = `-- name: GetPostinganByID :one
 SELECT id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat
 FROM postingan
-WHERE id = $1 AND kelas_id = $2
+WHERE postingan.id = $1
+  AND postingan.kelas_id = $2
+  AND EXISTS (SELECT 1 FROM pengguna u WHERE u.id = postingan.pengguna_id AND u.aktif = TRUE)
 `
 
 type GetPostinganByIDParams struct {
@@ -177,6 +181,7 @@ SELECT
 FROM pengumpulan_tugas pt
 JOIN pengguna u ON u.id = pt.pengguna_id
 WHERE pt.postingan_id = $1
+  AND u.aktif = TRUE
 ORDER BY pt.dibuat DESC, pt.id DESC
 `
 
@@ -223,7 +228,9 @@ func (q *Queries) ListPengumpulanTugas(ctx context.Context, postinganID int32) (
 const listPostingan = `-- name: ListPostingan :many
 SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe_id, p.pengguna_id, p.kelas_id, p.dibuat
 FROM postingan p
+JOIN pengguna u ON u.id = p.pengguna_id
 WHERE p.kelas_id = $1
+  AND u.aktif = TRUE
   AND ($2::integer IS NULL OR p.tipe_id = $2)
 ORDER BY p.dibuat DESC, p.id DESC
 `

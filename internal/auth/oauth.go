@@ -339,6 +339,9 @@ func (h *Handler) OAuthCallback(c *echo.Context) error {
 
 	userID, role, err := h.resolveOAuthUser(ctx, providerName, userInfo)
 	if err != nil {
+		if errors.Is(err, errInactiveAccount) {
+			return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "account_inactive", "akun tidak aktif")
+		}
 		log.Println("Error resolving OAuth user:", err)
 		return oauthCallbackError(c, statePayload.RedirectURI, clientNonce, "account_error", "gagal memproses akun OAuth")
 	}
@@ -387,12 +390,17 @@ func buildOAuthRedirectURL(baseURL, key, value, clientNonce string) string {
 	return u.String()
 }
 
+var errInactiveAccount = errors.New("akun tidak aktif")
+
 func (h *Handler) resolveOAuthUser(ctx context.Context, provider string, userInfo oauthUserInfo) (int32, string, error) {
 	linkedUser, err := h.db.GetPenggunaByOAuthAccount(ctx, db.GetPenggunaByOAuthAccountParams{
 		Provider:       provider,
 		ProviderUserID: userInfo.ID,
 	})
 	if err == nil {
+		if !linkedUser.Aktif {
+			return 0, "", errInactiveAccount
+		}
 		return linkedUser.ID, linkedUser.Role, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -401,6 +409,9 @@ func (h *Handler) resolveOAuthUser(ctx context.Context, provider string, userInf
 
 	existingUser, err := h.db.GetPenggunaByEmail(ctx, userInfo.Email)
 	if err == nil {
+		if !existingUser.Aktif {
+			return 0, "", errInactiveAccount
+		}
 		if err := h.db.LinkOAuthAccount(ctx, db.LinkOAuthAccountParams{
 			PenggunaID:     existingUser.ID,
 			Provider:       provider,

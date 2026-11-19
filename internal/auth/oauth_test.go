@@ -238,8 +238,8 @@ func TestOAuthCallbackDiscordLinkExistingEmailAndFrontendRedirect(t *testing.T) 
 
 	mockPool.ExpectQuery("SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama").
 		WithArgs("existing@example.com").
-		WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "email", "profile_picture", "role"}).
-			AddRow(int32(42), "Existing User", "existing@example.com", pgtype.Text{Valid: false}, "admin"))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "email", "profile_picture", "role", "aktif"}).
+			AddRow(int32(42), "Existing User", "existing@example.com", pgtype.Text{Valid: false}, "admin", true))
 
 	mockPool.ExpectExec("INSERT INTO oauth_accounts").
 		WithArgs(int32(42), "discord", "discord-id-99", "existing@example.com").
@@ -289,7 +289,7 @@ func TestOAuthCallbackReturningLinkedUser(t *testing.T) {
 
 	mockPool.ExpectQuery("SELECT p.id, rp.nama").
 		WithArgs("google", "google-sub-existing").
-		WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(7), "murid"))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "role", "aktif"}).AddRow(int32(7), "murid", true))
 
 	cbReq := httptest.NewRequest(http.MethodGet, "/auth/oauth/google/callback?code=auth-code-123&state="+url.QueryEscape(state), nil)
 	cbReq.AddCookie(stateCookie)
@@ -411,7 +411,7 @@ func TestOAuthMobileDeepLinkRedirectAndAllowlist(t *testing.T) {
 
 		mockPool.ExpectQuery("SELECT p.id, rp.nama").
 			WithArgs("google", "google-mobile-1").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(55), "murid"))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "role", "aktif"}).AddRow(int32(55), "murid", true))
 
 		cbReq := httptest.NewRequest(http.MethodGet, "/auth/oauth/google/callback?code=auth-code-123&state="+url.QueryEscape(state), nil)
 		cbReq.AddCookie(stateCookie)
@@ -469,7 +469,7 @@ func TestOAuthMobileDeepLinkRedirectAndAllowlist(t *testing.T) {
 
 		mockPool.ExpectQuery("SELECT p.id, rp.nama").
 			WithArgs("google", "google-mobile-1").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(55), "murid"))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "role", "aktif"}).AddRow(int32(55), "murid", true))
 
 		// Intentionally omit oauth_state cookie to simulate Custom Tab / ITP dropping cookies.
 		cbReq := httptest.NewRequest(http.MethodGet, "/auth/oauth/google/callback?code=auth-code-123&state="+url.QueryEscape(state), nil)

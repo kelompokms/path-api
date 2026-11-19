@@ -1,14 +1,14 @@
 -- name: GetPasswordPenggunaByEmail :one
-SELECT p.id, p.password, rp.nama AS role
+SELECT p.id, p.password, rp.nama AS role, p.aktif
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 WHERE p.email = $1;
 
 -- name: GetPasswordPenggunaByID :one
-SELECT password FROM pengguna WHERE id = $1;
+SELECT password FROM pengguna WHERE id = $1 AND aktif = TRUE;
 
 -- name: GetPenggunaByEmail :one
-SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama AS role
+SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama AS role, p.aktif
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 WHERE p.email = $1;
@@ -19,7 +19,7 @@ SELECT $1, $2, $3, id FROM role_pengguna WHERE nama = 'murid'
 RETURNING id;
 
 -- name: GetPenggunaByOAuthAccount :one
-SELECT p.id, rp.nama AS role
+SELECT p.id, rp.nama AS role, p.aktif
 FROM oauth_accounts oa
 JOIN pengguna p ON p.id = oa.pengguna_id
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna

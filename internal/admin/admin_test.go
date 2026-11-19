@@ -854,11 +854,108 @@ func TestCreatePenggunaAdmin(t *testing.T) {
 
 		mockPool.ExpectQuery("SELECT p.id, p.password").
 			WithArgs("budi@example.com").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(5), pgtype.Text{String: "hash", Valid: true}, "murid"))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "password", "role", "aktif"}).AddRow(int32(5), pgtype.Text{String: "hash", Valid: true}, "murid", true))
 
 		err = h.CreatePengguna(cDup)
 		require.Error(t, err)
 		assert.Equal(t, http.StatusConflict, err.(*echo.HTTPError).Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestDeletePenggunaAdmin(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	t.Run("admin soft-deletes non-admin user by setting aktif=false", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/admin/pengguna/5", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "pengguna_id", Value: "5"}})
+		setAuthContext(c, 1, true)
+
+		mockPool.ExpectQuery("SELECT p.id, rp.nama").
+			WithArgs(int32(5)).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(5), "murid"))
+		mockPool.ExpectExec("UPDATE pengguna").
+			WithArgs(int32(5)).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		err := h.DeletePengguna(c)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Berhasil menghapus pengguna")
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("rejects deleting admin account, self, invalid id, inactive/missing user, or non-admin caller", func(t *testing.T) {
+		// Non-admin caller
+		reqForbidden := httptest.NewRequest(http.MethodDelete, "/admin/pengguna/5", nil)
+		recForbidden := httptest.NewRecorder()
+		cForbidden := e.NewContext(reqForbidden, recForbidden)
+		cForbidden.SetPathValues(echo.PathValues{{Name: "pengguna_id", Value: "5"}})
+		setAuthContext(cForbidden, 2, false)
+
+		err := h.DeletePengguna(cForbidden)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusForbidden, err.(*echo.HTTPError).Code)
+
+		// Invalid ID
+		reqBadID := httptest.NewRequest(http.MethodDelete, "/admin/pengguna/abc", nil)
+		recBadID := httptest.NewRecorder()
+		cBadID := e.NewContext(reqBadID, recBadID)
+		cBadID.SetPathValues(echo.PathValues{{Name: "pengguna_id", Value: "abc"}})
+		setAuthContext(cBadID, 1, true)
+
+		err = h.DeletePengguna(cBadID)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.(*echo.HTTPError).Code)
+
+		// Deleting self
+		reqSelf := httptest.NewRequest(http.MethodDelete, "/admin/pengguna/1", nil)
+		recSelf := httptest.NewRecorder()
+		cSelf := e.NewContext(reqSelf, recSelf)
+		cSelf.SetPathValues(echo.PathValues{{Name: "pengguna_id", Value: "1"}})
+		setAuthContext(cSelf, 1, true)
+
+		err = h.DeletePengguna(cSelf)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.(*echo.HTTPError).Code)
+
+		// Deleting another admin
+		reqOtherAdmin := httptest.NewRequest(http.MethodDelete, "/admin/pengguna/9", nil)
+		recOtherAdmin := httptest.NewRecorder()
+		cOtherAdmin := e.NewContext(reqOtherAdmin, recOtherAdmin)
+		cOtherAdmin.SetPathValues(echo.PathValues{{Name: "pengguna_id", Value: "9"}})
+		setAuthContext(cOtherAdmin, 1, true)
+
+		mockPool.ExpectQuery("SELECT p.id, rp.nama").
+			WithArgs(int32(9)).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "role"}).AddRow(int32(9), "admin"))
+
+		err = h.DeletePengguna(cOtherAdmin)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.(*echo.HTTPError).Code)
+
+		// Non-existent or already inactive user
+		reqMissing := httptest.NewRequest(http.MethodDelete, "/admin/pengguna/999", nil)
+		recMissing := httptest.NewRecorder()
+		cMissing := e.NewContext(reqMissing, recMissing)
+		cMissing.SetPathValues(echo.PathValues{{Name: "pengguna_id", Value: "999"}})
+		setAuthContext(cMissing, 1, true)
+
+		mockPool.ExpectQuery("SELECT p.id, rp.nama").
+			WithArgs(int32(999)).
+			WillReturnError(pgx.ErrNoRows)
+
+		err = h.DeletePengguna(cMissing)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, err.(*echo.HTTPError).Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 }

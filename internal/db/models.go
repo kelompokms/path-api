@@ -61,6 +61,7 @@ type Pengguna struct {
 	ProfilePicture pgtype.Text      `json:"profile_picture"`
 	Password       pgtype.Text      `json:"password"`
 	IDRolePengguna int32            `json:"id_role_pengguna"`
+	Aktif          bool             `json:"aktif"`
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
 }
 

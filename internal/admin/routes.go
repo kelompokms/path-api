@@ -6,6 +6,7 @@ func (h *Handler) Routes(e *echo.Group) {
 	e.GET("/admin", h.ListAdmin)
 	e.GET("/admin/pengguna", h.ListPengguna)
 	e.POST("/admin/pengguna", h.CreatePengguna)
+	e.DELETE("/admin/pengguna/:pengguna_id", h.DeletePengguna)
 	e.PATCH("/admin/pengguna/:pengguna_id/role", h.UpdateRolePengguna)
 	e.GET("/admin/kelas", h.ListKelas)
 	e.POST("/admin/kelas", h.CreateKelas)

@@ -282,6 +282,59 @@ func (h *Handler) CreatePengguna(c *echo.Context) error {
 	})
 }
 
+// DeletePengguna godoc
+//
+//	@Summary		Hapus Pengguna (Admin)
+//	@Description	Menonaktifkan akun pengguna (guru atau murid) dengan mengubah kolom aktif menjadi false tanpa menghapus data dari tabel (khusus admin)
+//	@Tags			Admin
+//	@Produce		json
+//	@Param			pengguna_id		path		int	true	"ID Pengguna"
+//	@Success		200				{object}	utils.HTTPResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/admin/pengguna/{pengguna_id} [delete]
+func (h *Handler) DeletePengguna(c *echo.Context) error {
+	claims, err := requireAdminClaims(c)
+	if err != nil {
+		return err
+	}
+
+	parsedID, err := strconv.ParseInt(strings.TrimSpace(c.Param("pengguna_id")), 10, 32)
+	if err != nil || parsedID <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "ID pengguna tidak valid")
+	}
+	penggunaID := int32(parsedID)
+
+	if claims.UserID == penggunaID {
+		return echo.NewHTTPError(http.StatusBadRequest, "Tidak dapat menghapus akun sendiri")
+	}
+
+	ctx := c.Request().Context()
+	existing, err := h.db.GetPenggunaRoleByID(ctx, penggunaID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Pengguna tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa pengguna")
+	}
+	if existing.Role == "admin" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Tidak dapat menghapus akun admin")
+	}
+
+	affected, err := h.db.DeactivatePengguna(ctx, penggunaID)
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menghapus pengguna")
+	}
+	if affected == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "Pengguna tidak ditemukan")
+	}
+
+	return c.JSON(http.StatusOK, utils.HTTPResponse{
+		Message: "Berhasil menghapus pengguna",
+	})
+}
+
 // ListKelas godoc
 //
 //	@Summary		List Semua Kelas (Admin)

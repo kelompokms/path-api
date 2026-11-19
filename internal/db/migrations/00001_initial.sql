@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS pengguna (
 	profile_picture TEXT,
 	password TEXT,
 	id_role_pengguna INTEGER REFERENCES role_pengguna (id) NOT NULL,
+	aktif BOOLEAN NOT NULL DEFAULT TRUE,
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
 );
 
@@ -105,7 +106,6 @@ INSERT INTO role_pengguna(nama) VALUES
 
 INSERT INTO pengguna(nama, email, password, id_role_pengguna) VALUES
 ('admin', 'admin@example.com', '$2a$10$olMNj43m1Rdw2u1XlPIs.uasf0WIluzVHjaqk0UH3TzSoZcUVzF.i', 1),
-('John Doe', 'johndoe@example.com', '$2a$10$rvJQqSGhch00b01xbQ01Sebt2Ua/9qyODQl/ngVPJsz7kT7t9w4rG', 2),
 ('Budi', 'budi@example.com', '$2a$10$IgOJikpoGNP1bCDFa4C2v.7uAyxEG7jPlOP5ND7n5kDzCOamtjspC', 2);
 
 -- +goose StatementEnd

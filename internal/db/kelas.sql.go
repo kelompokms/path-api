@@ -15,10 +15,12 @@ const checkAnggotaKelas = `-- name: CheckAnggotaKelas :one
 SELECT 1 FROM (
     SELECT 1 FROM anggota_kelas ak
     JOIN kelas k ON k.id = ak.kelas_id
-    WHERE ak.pengguna_id = $1 AND k.kode_kelas = $2
+    JOIN pengguna p ON p.id = ak.pengguna_id
+    WHERE ak.pengguna_id = $1 AND k.kode_kelas = $2 AND p.aktif = TRUE
     UNION ALL
     SELECT 1 FROM kelas k2
-    WHERE k2.pengampu = $1 AND k2.kode_kelas = $2
+    JOIN pengguna p2 ON p2.id = k2.pengampu
+    WHERE k2.pengampu = $1 AND k2.kode_kelas = $2 AND p2.aktif = TRUE
 ) AS membership
 LIMIT 1
 `
@@ -102,10 +104,12 @@ const isAnggotaKelas = `-- name: IsAnggotaKelas :one
 SELECT EXISTS (
     SELECT 1 FROM anggota_kelas ak
     JOIN kelas k ON k.id = ak.kelas_id
-    WHERE k.kode_kelas = $1 AND ak.pengguna_id = $2
+    JOIN pengguna p ON p.id = ak.pengguna_id
+    WHERE k.kode_kelas = $1 AND ak.pengguna_id = $2 AND p.aktif = TRUE
     UNION
     SELECT 1 FROM kelas k
-    WHERE k.kode_kelas = $1 AND k.pengampu = $2
+    JOIN pengguna p ON p.id = k.pengampu
+    WHERE k.kode_kelas = $1 AND k.pengampu = $2 AND p.aktif = TRUE
 )::boolean AS is_anggota
 `
 
@@ -124,8 +128,11 @@ func (q *Queries) IsAnggotaKelas(ctx context.Context, arg IsAnggotaKelasParams) 
 const isGuruKelas = `-- name: IsGuruKelas :one
 SELECT COALESCE(
     (
-        EXISTS (SELECT 1 FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2 AND ak.guru = TRUE)
-        OR EXISTS (SELECT 1 FROM kelas k WHERE k.id = $2 AND k.pengampu = $1)
+        (
+            EXISTS (SELECT 1 FROM anggota_kelas ak WHERE ak.pengguna_id = $1 AND ak.kelas_id = $2 AND ak.guru = TRUE)
+            OR EXISTS (SELECT 1 FROM kelas k WHERE k.id = $2 AND k.pengampu = $1)
+        )
+        AND EXISTS (SELECT 1 FROM pengguna p WHERE p.id = $1 AND p.aktif = TRUE)
     ),
     FALSE
 )::boolean AS is_guru
@@ -183,10 +190,10 @@ SELECT
     k.tahun_ajaran,
     k.kode_kelas,
     k.dibuat,
-    k.pengampu,
+    p.id AS pengampu,
     COALESCE(p.nama, '')::text AS nama_pengampu
 FROM kelas k
-LEFT JOIN pengguna p ON p.id = k.pengampu
+LEFT JOIN pengguna p ON p.id = k.pengampu AND p.aktif = TRUE
 WHERE ($1::text IS NULL OR LOWER(k.tahun_ajaran) = LOWER($1::text))
   AND ($2::smallint IS NULL OR k.tingkat = $2::smallint)
   AND ($3::text IS NULL OR k.nama ILIKE '%' || $3::text || '%')
@@ -253,6 +260,7 @@ FROM anggota_kelas ak
 JOIN pengguna p ON p.id = ak.pengguna_id
 JOIN kelas k ON k.id = ak.kelas_id
 WHERE k.kode_kelas = $1
+  AND p.aktif = TRUE
 UNION
 SELECT
     p.id AS pengguna_id,
@@ -264,6 +272,7 @@ SELECT
 FROM kelas k
 JOIN pengguna p ON p.id = k.pengampu
 WHERE k.kode_kelas = $1
+  AND p.aktif = TRUE
   AND NOT EXISTS (
       SELECT 1 FROM anggota_kelas ak2
       WHERE ak2.kelas_id = k.id AND ak2.pengguna_id = k.pengampu
@@ -316,13 +325,15 @@ SELECT
     k.tahun_ajaran,
     k.kode_kelas,
     k.dibuat,
-    k.pengampu,
+    pengampu_user.id AS pengampu,
     (COALESCE(BOOL_OR(ak.guru), FALSE) OR COALESCE(k.pengampu = $1::integer, FALSE))::boolean AS guru
 FROM kelas k
+JOIN pengguna caller ON caller.id = $1::integer AND caller.aktif = TRUE
+LEFT JOIN pengguna pengampu_user ON pengampu_user.id = k.pengampu AND pengampu_user.aktif = TRUE
 LEFT JOIN anggota_kelas ak
     ON ak.kelas_id = k.id AND ak.pengguna_id = $1::integer
 WHERE ak.pengguna_id = $1::integer OR k.pengampu = $1::integer
-GROUP BY k.id
+GROUP BY k.id, pengampu_user.id
 ORDER BY k.dibuat DESC, k.id DESC
 `
 
@@ -369,8 +380,9 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasR
 }
 
 const listKelasDiampu = `-- name: ListKelasDiampu :many
-SELECT kelas.id, kelas.nama, kelas.tingkat, kelas.deskripsi, kelas.tahun_ajaran, kelas.kode_kelas, kelas.dibuat, kelas.pengampu FROM kelas
-WHERE pengampu = $1
+SELECT k.id, k.nama, k.tingkat, k.deskripsi, k.tahun_ajaran, k.kode_kelas, k.dibuat, k.pengampu FROM kelas k
+JOIN pengguna p ON p.id = k.pengampu AND p.aktif = TRUE
+WHERE k.pengampu = $1
 `
 
 func (q *Queries) ListKelasDiampu(ctx context.Context, pengampu pgtype.Int4) ([]Kela, error) {

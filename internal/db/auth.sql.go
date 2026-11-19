@@ -31,7 +31,7 @@ func (q *Queries) CreateOAuthPengguna(ctx context.Context, arg CreateOAuthPenggu
 }
 
 const getPasswordPenggunaByEmail = `-- name: GetPasswordPenggunaByEmail :one
-SELECT p.id, p.password, rp.nama AS role
+SELECT p.id, p.password, rp.nama AS role, p.aktif
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 WHERE p.email = $1
@@ -41,17 +41,23 @@ type GetPasswordPenggunaByEmailRow struct {
 	ID       int32       `json:"id"`
 	Password pgtype.Text `json:"password"`
 	Role     string      `json:"role"`
+	Aktif    bool        `json:"aktif"`
 }
 
 func (q *Queries) GetPasswordPenggunaByEmail(ctx context.Context, email string) (GetPasswordPenggunaByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getPasswordPenggunaByEmail, email)
 	var i GetPasswordPenggunaByEmailRow
-	err := row.Scan(&i.ID, &i.Password, &i.Role)
+	err := row.Scan(
+		&i.ID,
+		&i.Password,
+		&i.Role,
+		&i.Aktif,
+	)
 	return i, err
 }
 
 const getPasswordPenggunaByID = `-- name: GetPasswordPenggunaByID :one
-SELECT password FROM pengguna WHERE id = $1
+SELECT password FROM pengguna WHERE id = $1 AND aktif = TRUE
 `
 
 func (q *Queries) GetPasswordPenggunaByID(ctx context.Context, id int32) (pgtype.Text, error) {
@@ -62,7 +68,7 @@ func (q *Queries) GetPasswordPenggunaByID(ctx context.Context, id int32) (pgtype
 }
 
 const getPenggunaByEmail = `-- name: GetPenggunaByEmail :one
-SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama AS role
+SELECT p.id, p.nama, p.email, p.profile_picture, rp.nama AS role, p.aktif
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 WHERE p.email = $1
@@ -74,6 +80,7 @@ type GetPenggunaByEmailRow struct {
 	Email          string      `json:"email"`
 	ProfilePicture pgtype.Text `json:"profile_picture"`
 	Role           string      `json:"role"`
+	Aktif          bool        `json:"aktif"`
 }
 
 func (q *Queries) GetPenggunaByEmail(ctx context.Context, email string) (GetPenggunaByEmailRow, error) {
@@ -85,12 +92,13 @@ func (q *Queries) GetPenggunaByEmail(ctx context.Context, email string) (GetPeng
 		&i.Email,
 		&i.ProfilePicture,
 		&i.Role,
+		&i.Aktif,
 	)
 	return i, err
 }
 
 const getPenggunaByOAuthAccount = `-- name: GetPenggunaByOAuthAccount :one
-SELECT p.id, rp.nama AS role
+SELECT p.id, rp.nama AS role, p.aktif
 FROM oauth_accounts oa
 JOIN pengguna p ON p.id = oa.pengguna_id
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
@@ -103,14 +111,15 @@ type GetPenggunaByOAuthAccountParams struct {
 }
 
 type GetPenggunaByOAuthAccountRow struct {
-	ID   int32  `json:"id"`
-	Role string `json:"role"`
+	ID    int32  `json:"id"`
+	Role  string `json:"role"`
+	Aktif bool   `json:"aktif"`
 }
 
 func (q *Queries) GetPenggunaByOAuthAccount(ctx context.Context, arg GetPenggunaByOAuthAccountParams) (GetPenggunaByOAuthAccountRow, error) {
 	row := q.db.QueryRow(ctx, getPenggunaByOAuthAccount, arg.Provider, arg.ProviderUserID)
 	var i GetPenggunaByOAuthAccountRow
-	err := row.Scan(&i.ID, &i.Role)
+	err := row.Scan(&i.ID, &i.Role, &i.Aktif)
 	return i, err
 }
 

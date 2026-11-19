@@ -99,6 +99,10 @@ func (h *Handler) Login(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "username atau password salah")
 	}
 
+	if !pengguna.Aktif {
+		return echo.NewHTTPError(http.StatusForbidden, "akun tidak aktif")
+	}
+
 	if !pengguna.Password.Valid {
 		return echo.NewHTTPError(http.StatusBadRequest, "akun ini terdaftar melalui OAuth, silakan login dengan provider OAuth")
 	}

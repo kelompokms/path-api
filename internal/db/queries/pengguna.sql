@@ -7,7 +7,7 @@ RETURNING id;
 SELECT p.id, p.nama, p.email, p.phone, p.profile_picture, p.password, p.id_role_pengguna, rp.nama AS role, p.dibuat
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
-WHERE rp.nama = 'admin';
+WHERE rp.nama = 'admin' AND p.aktif = TRUE;
 
 -- name: ListGuru :many
 SELECT
@@ -18,7 +18,7 @@ SELECT
 FROM anggota_kelas
 JOIN pengguna ON pengguna_id = pengguna.id
 JOIN kelas ON kelas_id = kelas.id
-WHERE guru = TRUE;
+WHERE guru = TRUE AND pengguna.aktif = TRUE;
 
 -- name: ListAllGuru :many
 SELECT
@@ -32,7 +32,7 @@ FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 LEFT JOIN anggota_kelas ak ON ak.pengguna_id = p.id AND ak.guru = TRUE
 LEFT JOIN kelas k ON k.pengampu = p.id OR k.id = ak.kelas_id
-WHERE rp.nama = 'guru'
+WHERE rp.nama = 'guru' AND p.aktif = TRUE
 GROUP BY p.id
 ORDER BY p.nama ASC;
 
@@ -48,43 +48,53 @@ FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
 LEFT JOIN anggota_kelas ak ON ak.pengguna_id = p.id
 LEFT JOIN kelas k ON k.id = ak.kelas_id
-WHERE rp.nama = 'murid'
+WHERE rp.nama = 'murid' AND p.aktif = TRUE
 GROUP BY p.id
 ORDER BY p.nama ASC;
 
 -- name: IsGuru :one
-SELECT TRUE FROM anggota_kelas WHERE pengguna_id = $1 AND guru = TRUE LIMIT 1;
+SELECT TRUE
+FROM anggota_kelas ak
+JOIN pengguna p ON p.id = ak.pengguna_id
+WHERE ak.pengguna_id = $1 AND ak.guru = TRUE AND p.aktif = TRUE
+LIMIT 1;
 
 -- name: GetPengguna :one
 SELECT p.id, p.nama, p.email, p.phone, p.profile_picture, rp.nama AS role, (rp.nama = 'admin')::boolean AS admin
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
-WHERE p.id = $1 LIMIT 1;
+WHERE p.id = $1 AND p.aktif = TRUE LIMIT 1;
 
 -- name: GetPenggunaRoleByID :one
 SELECT p.id, rp.nama AS role
 FROM pengguna p
 JOIN role_pengguna rp ON rp.id = p.id_role_pengguna
-WHERE p.id = $1 LIMIT 1;
+WHERE p.id = $1 AND p.aktif = TRUE LIMIT 1;
 
 -- name: UpdatePengguna :one
-SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 LIMIT 1;
+SELECT id, nama, email, phone, profile_picture FROM pengguna WHERE id = $1 AND aktif = TRUE LIMIT 1;
 
 -- name: UpdateRolePengguna :execrows
 UPDATE pengguna
 SET id_role_pengguna = rp.id
 FROM role_pengguna rp
 WHERE pengguna.id = sqlc.arg(id)
+  AND pengguna.aktif = TRUE
   AND rp.nama = sqlc.arg(role)::text;
 
 -- name: UpdatePasswordPengguna :exec
-UPDATE pengguna SET password = $2 WHERE id = $1;
+UPDATE pengguna SET password = $2 WHERE id = $1 AND aktif = TRUE;
 
 -- name: UpdateEmailPengguna :one
-UPDATE pengguna SET email = $2 WHERE id = $1 RETURNING id, nama, email, phone, profile_picture;
+UPDATE pengguna SET email = $2 WHERE id = $1 AND aktif = TRUE RETURNING id, nama, email, phone, profile_picture;
 
 -- name: UpdatePhonePengguna :one
-UPDATE pengguna SET phone = $2 WHERE id = $1 RETURNING id, nama, email, phone, profile_picture;
+UPDATE pengguna SET phone = $2 WHERE id = $1 AND aktif = TRUE RETURNING id, nama, email, phone, profile_picture;
 
 -- name: UpdateProfilePicturePengguna :one
-UPDATE pengguna SET profile_picture = $2 WHERE id = $1 RETURNING id, nama, email, phone, profile_picture;
+UPDATE pengguna SET profile_picture = $2 WHERE id = $1 AND aktif = TRUE RETURNING id, nama, email, phone, profile_picture;
+
+-- name: DeactivatePengguna :execrows
+UPDATE pengguna
+SET aktif = FALSE
+WHERE id = $1 AND aktif = TRUE;

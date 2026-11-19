@@ -69,7 +69,7 @@ func TestRegister(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(1), pgtype.Text{String: "hashed", Valid: true}, "murid"),
+			pgxmock.NewRows([]string{"id", "password", "role", "aktif"}).AddRow(int32(1), pgtype.Text{String: "hashed", Valid: true}, "murid", true),
 		)
 
 		err := h.Register(c)
@@ -108,7 +108,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid"),
+			pgxmock.NewRows([]string{"id", "password", "role", "aktif"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid", true),
 		)
 
 		err := h.Login(c)
@@ -131,7 +131,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("john@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid"),
+			pgxmock.NewRows([]string{"id", "password", "role", "aktif"}).AddRow(int32(1), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid", true),
 		)
 
 		err := h.Login(c)
@@ -156,7 +156,7 @@ func TestLogin(t *testing.T) {
 		c := e.NewContext(req, rec)
 
 		mockPool.ExpectQuery("SELECT").WithArgs("oauth@example.com").WillReturnRows(
-			pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(2), pgtype.Text{Valid: false}, "murid"),
+			pgxmock.NewRows([]string{"id", "password", "role", "aktif"}).AddRow(int32(2), pgtype.Text{Valid: false}, "murid", true),
 		)
 
 		err := h.Login(c)
@@ -165,6 +165,31 @@ func TestLogin(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Equal(t, "akun ini terdaftar melalui OAuth, silakan login dengan provider OAuth", httpErr.Message)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("inactive user cannot login", func(t *testing.T) {
+		reqBody := LoginRequest{
+			Email:    "inactive@example.com",
+			Password: "password123",
+		}
+		jsonBody, _ := json.Marshal(reqBody)
+
+		req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		mockPool.ExpectQuery("SELECT").WithArgs("inactive@example.com").WillReturnRows(
+			pgxmock.NewRows([]string{"id", "password", "role", "aktif"}).AddRow(int32(3), pgtype.Text{String: string(hashedPassword), Valid: true}, "murid", false),
+		)
+
+		err := h.Login(c)
+		assert.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		assert.True(t, ok)
+		assert.Equal(t, http.StatusForbidden, httpErr.Code)
+		assert.Equal(t, "akun tidak aktif", httpErr.Message)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 }
