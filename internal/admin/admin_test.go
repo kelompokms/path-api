@@ -14,6 +14,7 @@ import (
 	"path-api/internal/utils"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 	"github.com/pashagolub/pgxmock/v6"
@@ -795,4 +796,69 @@ func TestAdminDibuatUsesGMT7(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), expectedWIB)
 	assert.NoError(t, mockPool.ExpectationsWereMet())
+}
+
+func TestCreatePenggunaAdmin(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	t.Run("admin creates new user with role guru or murid", func(t *testing.T) {
+		body := `{"nama":"Budi Santoso","email":"budi@example.com","password":"password123","role":"guru"}`
+		req := httptest.NewRequest(http.MethodPost, "/admin/pengguna", bytes.NewBufferString(body))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, true)
+
+		mockPool.ExpectQuery("SELECT p.id, p.password").
+			WithArgs("budi@example.com").
+			WillReturnError(pgx.ErrNoRows)
+		mockPool.ExpectQuery("INSERT INTO pengguna").
+			WithArgs("Budi Santoso", "budi@example.com", pgxmock.AnyArg(), "guru").
+			WillReturnRows(pgxmock.NewRows([]string{"id"}).AddRow(int32(15)))
+
+		err := h.CreatePengguna(c)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusCreated, rec.Code)
+
+		var resp AdminPenggunaItem
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.Equal(t, int32(15), resp.ID)
+		assert.Equal(t, "Budi Santoso", resp.Nama)
+		assert.Equal(t, "budi@example.com", resp.Email)
+		assert.Equal(t, "guru", resp.Role)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("rejects duplicate email or invalid role", func(t *testing.T) {
+		reqInvalidRole := httptest.NewRequest(http.MethodPost, "/admin/pengguna", bytes.NewBufferString(`{"nama":"Budi","email":"budi@example.com","password":"password123","role":"admin"}`))
+		reqInvalidRole.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		recInvalidRole := httptest.NewRecorder()
+		cInvalidRole := e.NewContext(reqInvalidRole, recInvalidRole)
+		setAuthContext(cInvalidRole, 1, true)
+
+		err := h.CreatePengguna(cInvalidRole)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.(*echo.HTTPError).Code)
+
+		reqDup := httptest.NewRequest(http.MethodPost, "/admin/pengguna", bytes.NewBufferString(`{"nama":"Budi","email":"budi@example.com","password":"password123","role":"murid"}`))
+		reqDup.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		recDup := httptest.NewRecorder()
+		cDup := e.NewContext(reqDup, recDup)
+		setAuthContext(cDup, 1, true)
+
+		mockPool.ExpectQuery("SELECT p.id, p.password").
+			WithArgs("budi@example.com").
+			WillReturnRows(pgxmock.NewRows([]string{"id", "password", "role"}).AddRow(int32(5), pgtype.Text{String: "hash", Valid: true}, "murid"))
+
+		err = h.CreatePengguna(cDup)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusConflict, err.(*echo.HTTPError).Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
 }

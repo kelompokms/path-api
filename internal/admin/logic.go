@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func requireAdminClaims(c *echo.Context) (*utils.JWTCustomClaims, error) {
@@ -213,6 +214,71 @@ func (h *Handler) ListPengguna(c *echo.Context) error {
 	return c.JSON(http.StatusOK, ListGuruMuridResponse{
 		Guru:  guruItems,
 		Murid: muridItems,
+	})
+}
+
+// CreatePengguna godoc
+//
+//	@Summary		Tambah Pengguna Baru (Admin)
+//	@Description	Membuat akun pengguna baru dengan pilihan role guru atau murid (khusus admin)
+//	@Tags			Admin
+//	@Accept			json
+//	@Produce		json
+//	@Param			request			body		AdminCreatePenggunaRequest	true	"Data pengguna baru"
+//	@Success		201				{object}	AdminPenggunaItem
+//	@Failure		400,401,403,409,500	{object}	utils.HTTPResponse
+//	@Router			/admin/pengguna [post]
+func (h *Handler) CreatePengguna(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+
+	var req AdminCreatePenggunaRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	req.Nama = strings.TrimSpace(req.Nama)
+	req.Email = strings.TrimSpace(req.Email)
+	req.Role = strings.ToLower(strings.TrimSpace(req.Role))
+	if err := c.Validate(&req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	if req.Role != "guru" && req.Role != "murid" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Role pengguna harus 'guru' atau 'murid'")
+	}
+
+	ctx := c.Request().Context()
+	if _, err := h.db.GetPasswordPenggunaByEmail(ctx, req.Email); err == nil {
+		return echo.NewHTTPError(http.StatusConflict, "Email sudah terdaftar")
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa email pengguna")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memproses password pengguna")
+	}
+
+	userID, err := h.db.CreatePengguna(ctx, db.CreatePenggunaParams{
+		Nama:     req.Nama,
+		Email:    req.Email,
+		Password: pgtype.Text{String: string(hashedPassword), Valid: true},
+		Role:     req.Role,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat pengguna baru")
+	}
+
+	return c.JSON(http.StatusCreated, AdminPenggunaItem{
+		ID:    userID,
+		Nama:  req.Nama,
+		Email: req.Email,
+		Role:  req.Role,
+		Kelas: []string{},
 	})
 }
 

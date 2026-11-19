@@ -65,6 +65,13 @@ type UpdateRolePenggunaRequest struct {
 	Role       string `json:"role" validate:"required"`
 }
 
+type AdminCreatePenggunaRequest struct {
+	Nama     string `json:"nama" validate:"required" example:"Budi Santoso"`
+	Email    string `json:"email" validate:"required,email" example:"budi@example.com"`
+	Password string `json:"password" validate:"required,min=8" example:"secret123"`
+	Role     string `json:"role" validate:"required" example:"guru"`
+}
+
 type AdminKelasResponse struct {
 	ID           int32     `json:"id" example:"1"`
 	Nama         string    `json:"nama" example:"X PPLG 1"`
