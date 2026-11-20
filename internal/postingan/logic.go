@@ -313,6 +313,36 @@ func (h *Handler) ListTipe(c *echo.Context) error {
 	return c.JSON(http.StatusOK, tipe)
 }
 
+func nilaiToPtr(v pgtype.Int2) *int32 {
+	if !v.Valid {
+		return nil
+	}
+	val := int32(v.Int16)
+	return &val
+}
+
+func toPengumpulanItems(rows []db.ListPengumpulanTugasRow) []PengumpulanItemResponse {
+	items := make([]PengumpulanItemResponse, 0, len(rows))
+	for _, row := range rows {
+		lampiran := row.Lampiran
+		if lampiran == nil {
+			lampiran = []string{}
+		}
+		items = append(items, PengumpulanItemResponse{
+			ID:             row.ID,
+			PostinganID:    row.PostinganID,
+			PenggunaID:     row.PenggunaID,
+			Nama:           row.Nama,
+			Email:          row.Email,
+			ProfilePicture: row.ProfilePicture.String,
+			Lampiran:       lampiran,
+			Nilai:          nilaiToPtr(row.Nilai),
+			Dibuat:         utils.ToGMT7(row.Dibuat.Time),
+		})
+	}
+	return items
+}
+
 func toPengumpulanResponse(row db.PengumpulanTuga) PengumpulanResponse {
 	lampiran := row.Lampiran
 	if lampiran == nil {
@@ -329,6 +359,7 @@ func toPengumpulanResponse(row db.PengumpulanTuga) PengumpulanResponse {
 		PenggunaID:  row.PenggunaID,
 		Submitted:   true,
 		Lampiran:    lampiran,
+		Nilai:       nilaiToPtr(row.Nilai),
 		Dibuat:      dibuat,
 	}
 }
@@ -447,25 +478,97 @@ func (h *Handler) ListPengumpulan(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar pengumpulan tugas")
 	}
 
-	items := make([]PengumpulanItemResponse, 0, len(rows))
-	for _, row := range rows {
-		lampiran := row.Lampiran
-		if lampiran == nil {
-			lampiran = []string{}
-		}
-		items = append(items, PengumpulanItemResponse{
-			ID:             row.ID,
-			PostinganID:    row.PostinganID,
-			PenggunaID:     row.PenggunaID,
-			Nama:           row.Nama,
-			Email:          row.Email,
-			ProfilePicture: row.ProfilePicture.String,
-			Lampiran:       lampiran,
-			Dibuat:         utils.ToGMT7(row.Dibuat.Time),
-		})
+	return c.JSON(http.StatusOK, toPengumpulanItems(rows))
+}
+
+// NilaiPengumpulan godoc
+//
+//	@Summary		Simpan Nilai Pengumpulan Tugas
+//	@Description	Menyimpan atau memperbarui nilai (0-100) untuk satu atau beberapa murid pada tugas tertentu (khusus guru kelas)
+//	@Tags			Postingan
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string					true	"Kode Kelas"
+//	@Param			postinganID			path		int						true	"Postingan ID"
+//	@Param			request				body		NilaiPengumpulanRequest	true	"Nilai Pengumpulan Request Payload"
+//	@Success		200					{object}	[]PengumpulanItemResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan/nilai [patch]
+func (h *Handler) NilaiPengumpulan(c *echo.Context) error {
+	req := new(NilaiPengumpulanRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
 	}
 
-	return c.JSON(http.StatusOK, items)
+	_, kelasID, err := h.authorizeGuruKelas(c, req.KodeKelas, "Hanya guru yang dapat menilai pengumpulan tugas")
+	if err != nil {
+		return err
+	}
+
+	ctx := c.Request().Context()
+	if err := h.validateTugasPostingan(ctx, kelasID, req.PostinganID); err != nil {
+		return err
+	}
+
+	for _, item := range req.Nilai {
+		nilaiVal := pgtype.Int2{Valid: false}
+		if item.Nilai != nil {
+			nilaiVal = pgtype.Int2{Int16: int16(*item.Nilai), Valid: true}
+		}
+
+		existing, err := h.db.GetPengumpulanTugas(ctx, db.GetPengumpulanTugasParams{
+			PostinganID: req.PostinganID,
+			PenggunaID:  item.PenggunaID,
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa pengumpulan tugas")
+		}
+
+		if errors.Is(err, pgx.ErrNoRows) {
+			isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
+				KodeKelas:  req.KodeKelas,
+				PenggunaID: item.PenggunaID,
+			})
+			if err != nil {
+				log.Println(err)
+				return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+			}
+			if !isMember {
+				return echo.NewHTTPError(http.StatusNotFound, "Murid bukan anggota kelas ini")
+			}
+
+			if _, err := h.db.CreatePengumpulanDenganNilai(ctx, db.CreatePengumpulanDenganNilaiParams{
+				PostinganID: req.PostinganID,
+				PenggunaID:  item.PenggunaID,
+				Lampiran:    []string{},
+				Nilai:       nilaiVal,
+			}); err != nil {
+				log.Println(err)
+				return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menyimpan nilai pengumpulan tugas")
+			}
+			continue
+		}
+
+		if _, err := h.db.UpdateNilaiPengumpulanTugas(ctx, db.UpdateNilaiPengumpulanTugasParams{
+			ID:    existing.ID,
+			Nilai: nilaiVal,
+		}); err != nil {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui nilai pengumpulan tugas")
+		}
+	}
+
+	rows, err := h.db.ListPengumpulanTugas(ctx, req.PostinganID)
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar pengumpulan tugas")
+	}
+
+	return c.JSON(http.StatusOK, toPengumpulanItems(rows))
 }
 
 // GetPengumpulan godoc

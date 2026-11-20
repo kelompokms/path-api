@@ -70,6 +70,7 @@ type PengumpulanTuga struct {
 	PostinganID int32            `json:"postingan_id"`
 	PenggunaID  int32            `json:"pengguna_id"`
 	Lampiran    []string         `json:"lampiran"`
+	Nilai       pgtype.Int2      `json:"nilai"`
 	Dibuat      pgtype.Timestamp `json:"dibuat"`
 }
 

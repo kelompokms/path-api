@@ -11,10 +11,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createPengumpulanDenganNilai = `-- name: CreatePengumpulanDenganNilai :one
+INSERT INTO pengumpulan_tugas (postingan_id, pengguna_id, lampiran, nilai)
+VALUES ($1, $2, $3, $4)
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat
+`
+
+type CreatePengumpulanDenganNilaiParams struct {
+	PostinganID int32       `json:"postingan_id"`
+	PenggunaID  int32       `json:"pengguna_id"`
+	Lampiran    []string    `json:"lampiran"`
+	Nilai       pgtype.Int2 `json:"nilai"`
+}
+
+func (q *Queries) CreatePengumpulanDenganNilai(ctx context.Context, arg CreatePengumpulanDenganNilaiParams) (PengumpulanTuga, error) {
+	row := q.db.QueryRow(ctx, createPengumpulanDenganNilai,
+		arg.PostinganID,
+		arg.PenggunaID,
+		arg.Lampiran,
+		arg.Nilai,
+	)
+	var i PengumpulanTuga
+	err := row.Scan(
+		&i.ID,
+		&i.PostinganID,
+		&i.PenggunaID,
+		&i.Lampiran,
+		&i.Nilai,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
 const createPengumpulanTugas = `-- name: CreatePengumpulanTugas :one
 INSERT INTO pengumpulan_tugas (postingan_id, pengguna_id, lampiran)
 VALUES ($1, $2, $3)
-RETURNING id, postingan_id, pengguna_id, lampiran, dibuat
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat
 `
 
 type CreatePengumpulanTugasParams struct {
@@ -31,6 +63,7 @@ func (q *Queries) CreatePengumpulanTugas(ctx context.Context, arg CreatePengumpu
 		&i.PostinganID,
 		&i.PenggunaID,
 		&i.Lampiran,
+		&i.Nilai,
 		&i.Dibuat,
 	)
 	return i, err
@@ -77,7 +110,7 @@ func (q *Queries) CreatePostingan(ctx context.Context, arg CreatePostinganParams
 const deletePengumpulanTugas = `-- name: DeletePengumpulanTugas :many
 DELETE FROM pengumpulan_tugas
 WHERE postingan_id = $1 AND pengguna_id = $2
-RETURNING id, postingan_id, pengguna_id, lampiran, dibuat
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat
 `
 
 type DeletePengumpulanTugasParams struct {
@@ -99,6 +132,7 @@ func (q *Queries) DeletePengumpulanTugas(ctx context.Context, arg DeletePengumpu
 			&i.PostinganID,
 			&i.PenggunaID,
 			&i.Lampiran,
+			&i.Nilai,
 			&i.Dibuat,
 		); err != nil {
 			return nil, err
@@ -112,7 +146,7 @@ func (q *Queries) DeletePengumpulanTugas(ctx context.Context, arg DeletePengumpu
 }
 
 const getPengumpulanTugas = `-- name: GetPengumpulanTugas :one
-SELECT id, postingan_id, pengguna_id, lampiran, dibuat
+SELECT id, postingan_id, pengguna_id, lampiran, nilai, dibuat
 FROM pengumpulan_tugas
 WHERE pengumpulan_tugas.postingan_id = $1
   AND pengumpulan_tugas.pengguna_id = $2
@@ -134,6 +168,7 @@ func (q *Queries) GetPengumpulanTugas(ctx context.Context, arg GetPengumpulanTug
 		&i.PostinganID,
 		&i.PenggunaID,
 		&i.Lampiran,
+		&i.Nilai,
 		&i.Dibuat,
 	)
 	return i, err
@@ -177,6 +212,7 @@ SELECT
     u.email,
     u.profile_picture,
     pt.lampiran,
+    pt.nilai,
     pt.dibuat
 FROM pengumpulan_tugas pt
 JOIN pengguna u ON u.id = pt.pengguna_id
@@ -193,6 +229,7 @@ type ListPengumpulanTugasRow struct {
 	Email          string           `json:"email"`
 	ProfilePicture pgtype.Text      `json:"profile_picture"`
 	Lampiran       []string         `json:"lampiran"`
+	Nilai          pgtype.Int2      `json:"nilai"`
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
 }
 
@@ -213,6 +250,7 @@ func (q *Queries) ListPengumpulanTugas(ctx context.Context, postinganID int32) (
 			&i.Email,
 			&i.ProfilePicture,
 			&i.Lampiran,
+			&i.Nilai,
 			&i.Dibuat,
 		); err != nil {
 			return nil, err
@@ -304,11 +342,37 @@ func (q *Queries) ListTipePostingan(ctx context.Context) ([]TipePostingan, error
 	return items, nil
 }
 
+const updateNilaiPengumpulanTugas = `-- name: UpdateNilaiPengumpulanTugas :one
+UPDATE pengumpulan_tugas
+SET nilai = $2
+WHERE id = $1
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat
+`
+
+type UpdateNilaiPengumpulanTugasParams struct {
+	ID    int32       `json:"id"`
+	Nilai pgtype.Int2 `json:"nilai"`
+}
+
+func (q *Queries) UpdateNilaiPengumpulanTugas(ctx context.Context, arg UpdateNilaiPengumpulanTugasParams) (PengumpulanTuga, error) {
+	row := q.db.QueryRow(ctx, updateNilaiPengumpulanTugas, arg.ID, arg.Nilai)
+	var i PengumpulanTuga
+	err := row.Scan(
+		&i.ID,
+		&i.PostinganID,
+		&i.PenggunaID,
+		&i.Lampiran,
+		&i.Nilai,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
 const updatePengumpulanTugas = `-- name: UpdatePengumpulanTugas :one
 UPDATE pengumpulan_tugas
 SET lampiran = $3, dibuat = now()
 WHERE id = $1 AND pengguna_id = $2
-RETURNING id, postingan_id, pengguna_id, lampiran, dibuat
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat
 `
 
 type UpdatePengumpulanTugasParams struct {
@@ -325,6 +389,7 @@ func (q *Queries) UpdatePengumpulanTugas(ctx context.Context, arg UpdatePengumpu
 		&i.PostinganID,
 		&i.PenggunaID,
 		&i.Lampiran,
+		&i.Nilai,
 		&i.Dibuat,
 	)
 	return i, err

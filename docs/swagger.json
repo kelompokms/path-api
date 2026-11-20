@@ -407,6 +407,127 @@
                         }
                     }
                 }
+            },
+            "post": {
+                "description": "Membuat akun pengguna baru dengan pilihan role guru atau murid (khusus admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Tambah Pengguna Baru (Admin)",
+                "parameters": [
+                    {
+                        "description": "Data pengguna baru",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/admin.AdminCreatePenggunaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/admin.AdminPenggunaItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/pengguna/{pengguna_id}": {
+            "delete": {
+                "description": "Menonaktifkan akun pengguna (guru atau murid) dengan mengubah kolom aktif menjadi false tanpa menghapus data dari tabel (khusus admin)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Hapus Pengguna (Admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID Pengguna",
+                        "name": "pengguna_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
             }
         },
         "/admin/pengguna/{pengguna_id}/role": {
@@ -1481,6 +1602,87 @@
                 }
             }
         },
+        "/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan/nilai": {
+            "patch": {
+                "description": "Menyimpan atau memperbarui nilai (0-100) untuk satu atau beberapa murid pada tugas tertentu (khusus guru kelas)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Simpan Nilai Pengumpulan Tugas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Nilai Pengumpulan Request Payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/postingan.NilaiPengumpulanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/postingan.PengumpulanItemResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/kelas/{kode_kelas}/postingan/{postinganID}/pengumpulan/saya": {
             "get": {
                 "description": "Mendapatkan status dan lampiran pengumpulan tugas milik murid yang sedang login",
@@ -2150,6 +2352,34 @@
                 }
             }
         },
+        "admin.AdminCreatePenggunaRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "nama",
+                "password",
+                "role"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "budi@example.com"
+                },
+                "nama": {
+                    "type": "string",
+                    "example": "Budi Santoso"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "example": "secret123"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "guru"
+                }
+            }
+        },
         "admin.AdminKelasResponse": {
             "type": "object",
             "properties": {
@@ -2754,6 +2984,37 @@
                 }
             }
         },
+        "postingan.NilaiItemPayload": {
+            "type": "object",
+            "required": [
+                "pengguna_id"
+            ],
+            "properties": {
+                "nilai": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "pengguna_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "postingan.NilaiPengumpulanRequest": {
+            "type": "object",
+            "required": [
+                "nilai"
+            ],
+            "properties": {
+                "nilai": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/postingan.NilaiItemPayload"
+                    }
+                }
+            }
+        },
         "postingan.PengumpulanItemResponse": {
             "type": "object",
             "properties": {
@@ -2781,6 +3042,10 @@
                 "nama": {
                     "type": "string",
                     "example": "Budi Santoso"
+                },
+                "nilai": {
+                    "type": "integer",
+                    "example": 90
                 },
                 "pengguna_id": {
                     "type": "integer",
@@ -2815,6 +3080,10 @@
                     "example": [
                         "[\"/uploads/2026/11/08/abc.pdf\"]"
                     ]
+                },
+                "nilai": {
+                    "type": "integer",
+                    "example": 90
                 },
                 "pengguna_id": {
                     "type": "integer",

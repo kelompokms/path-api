@@ -26,7 +26,7 @@ WHERE postingan.id = $1
   AND EXISTS (SELECT 1 FROM pengguna u WHERE u.id = postingan.pengguna_id AND u.aktif = TRUE);
 
 -- name: GetPengumpulanTugas :one
-SELECT id, postingan_id, pengguna_id, lampiran, dibuat
+SELECT id, postingan_id, pengguna_id, lampiran, nilai, dibuat
 FROM pengumpulan_tugas
 WHERE pengumpulan_tugas.postingan_id = $1
   AND pengumpulan_tugas.pengguna_id = $2
@@ -43,6 +43,7 @@ SELECT
     u.email,
     u.profile_picture,
     pt.lampiran,
+    pt.nilai,
     pt.dibuat
 FROM pengumpulan_tugas pt
 JOIN pengguna u ON u.id = pt.pengguna_id
@@ -53,18 +54,29 @@ ORDER BY pt.dibuat DESC, pt.id DESC;
 -- name: CreatePengumpulanTugas :one
 INSERT INTO pengumpulan_tugas (postingan_id, pengguna_id, lampiran)
 VALUES ($1, $2, $3)
-RETURNING id, postingan_id, pengguna_id, lampiran, dibuat;
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat;
+
+-- name: CreatePengumpulanDenganNilai :one
+INSERT INTO pengumpulan_tugas (postingan_id, pengguna_id, lampiran, nilai)
+VALUES ($1, $2, $3, $4)
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat;
 
 -- name: UpdatePengumpulanTugas :one
 UPDATE pengumpulan_tugas
 SET lampiran = $3, dibuat = now()
 WHERE id = $1 AND pengguna_id = $2
-RETURNING id, postingan_id, pengguna_id, lampiran, dibuat;
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat;
+
+-- name: UpdateNilaiPengumpulanTugas :one
+UPDATE pengumpulan_tugas
+SET nilai = $2
+WHERE id = $1
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat;
 
 -- name: DeletePengumpulanTugas :many
 DELETE FROM pengumpulan_tugas
 WHERE postingan_id = $1 AND pengguna_id = $2
-RETURNING id, postingan_id, pengguna_id, lampiran, dibuat;
+RETURNING id, postingan_id, pengguna_id, lampiran, nilai, dibuat;
 
 -- name: ListTipePostingan :many
 SELECT * FROM tipe_postingan;

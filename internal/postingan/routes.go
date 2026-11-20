@@ -13,5 +13,6 @@ func (h *Handler) Routes(e *echo.Group) {
 	postingan.GET("/postingan/:postinganID/pengumpulan/saya", h.GetPengumpulan)
 	postingan.GET("/postingan/:postinganID/pengumpulan", h.ListPengumpulan)
 	postingan.POST("/postingan/:postinganID/pengumpulan", h.SubmitPengumpulan)
+	postingan.PATCH("/postingan/:postinganID/pengumpulan/nilai", h.NilaiPengumpulan)
 	postingan.DELETE("/postingan/:postinganID/pengumpulan", h.TarikPengumpulan)
 }

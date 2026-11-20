@@ -62,12 +62,24 @@ type SubmitPengumpulanRequest struct {
 	Lampiran    []string `json:"lampiran"`
 }
 
+type NilaiItemPayload struct {
+	PenggunaID int32  `json:"pengguna_id" validate:"required,gt=0"`
+	Nilai      *int32 `json:"nilai" validate:"omitempty,gte=0,lte=100"`
+}
+
+type NilaiPengumpulanRequest struct {
+	KodeKelas   string             `param:"kode_kelas" json:"-" validate:"required"`
+	PostinganID int32              `param:"postinganID" json:"-" validate:"required,gt=0"`
+	Nilai       []NilaiItemPayload `json:"nilai" validate:"required,min=1,dive"`
+}
+
 type PengumpulanResponse struct {
 	ID          int32      `json:"id" example:"1"`
 	PostinganID int32      `json:"postingan_id" example:"1"`
 	PenggunaID  int32      `json:"pengguna_id" example:"2"`
 	Submitted   bool       `json:"submitted" example:"true"`
 	Lampiran    []string   `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
+	Nilai       *int32     `json:"nilai,omitempty" example:"90"`
 	Dibuat      *time.Time `json:"dibuat,omitempty" example:"2026-01-01T07:00:00+07:00"`
 }
 
@@ -79,6 +91,7 @@ type PengumpulanItemResponse struct {
 	Email          string    `json:"email" example:"budi@example.com"`
 	ProfilePicture string    `json:"profile_picture" example:"uploads/pfp/2026/11/10/user2_abc.jpg"`
 	Lampiran       []string  `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
+	Nilai          *int32    `json:"nilai" example:"90"`
 	Dibuat         time.Time `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
 }
 

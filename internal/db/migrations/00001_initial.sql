@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS pengumpulan_tugas (
 	postingan_id INTEGER REFERENCES postingan (id) NOT NULL,
 	pengguna_id INTEGER REFERENCES pengguna (id) NOT NULL,
 	lampiran TEXT ARRAY,
+	nilai SMALLINT CHECK (nilai IS NULL OR (nilai >= 0 AND nilai <= 100)),
 	dibuat TIMESTAMP NOT NULL DEFAULT now()
 );
 
