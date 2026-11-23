@@ -154,7 +154,7 @@ func TestKoreksiTugasReadsSubmissionsAndReturnsScores(t *testing.T) {
 		switch r.URL.Path {
 		case "/v1/assessments/grade":
 			assert.NoError(t, r.ParseMultipartForm(4<<20))
-			assert.Equal(t, "Pemrograman Web", r.FormValue("mata_pelajaran"))
+			assert.Equal(t, "X PPLG 1", r.FormValue("mata_pelajaran"))
 			assert.Equal(t, "X PPLG 1", r.FormValue("kelas"))
 			assert.Equal(t, "siswa1@school.id", r.FormValue("email"))
 			w.WriteHeader(http.StatusAccepted)
@@ -174,10 +174,10 @@ func TestKoreksiTugasReadsSubmissionsAndReturnsScores(t *testing.T) {
 	defer mock.Close()
 
 	now := pgtype.Timestamp{Time: time.Now(), Valid: true}
-	mock.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").
+	mock.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu FROM kelas").
 		WithArgs("PPLG10").
-		WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}).
-			AddRow(int32(1), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Pemrograman Web"))
+		WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}).
+			AddRow(int32(1), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}))
 	mock.ExpectQuery("SELECT COALESCE").
 		WithArgs(int32(2), int32(1)).
 		WillReturnRows(pgxmock.NewRows([]string{"is_guru"}).AddRow(true))
@@ -402,10 +402,10 @@ func TestSimilarityIndikasiRingkasAndOpsUsage(t *testing.T) {
 
 	now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 	expectAssessmentDB := func(fitur string) {
-		mock.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").
+		mock.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu FROM kelas").
 			WithArgs("PPLG10").
-			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}).
-				AddRow(int32(1), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Pemrograman"))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}).
+				AddRow(int32(1), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}))
 		mock.ExpectQuery("SELECT COALESCE").WithArgs(int32(2), int32(1)).WillReturnRows(pgxmock.NewRows([]string{"is_guru"}).AddRow(true))
 		mock.ExpectQuery("SELECT id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat, menerima_kiriman, tenggat_waktu").
 			WithArgs(int32(10), int32(1)).

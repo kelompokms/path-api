@@ -385,7 +385,6 @@ func (h *Handler) ListKelas(c *echo.Context) error {
 		items = append(items, AdminKelasResponse{
 			ID:           r.ID,
 			Nama:         r.Nama,
-			Mapel:        r.Mapel,
 			Deskripsi:    r.Deskripsi,
 			Tingkat:      r.Tingkat,
 			TahunAjaran:  r.TahunAjaran,
@@ -482,7 +481,6 @@ func (h *Handler) CreateKelas(c *echo.Context) error {
 	}
 
 	nama := strings.TrimSpace(req.Nama)
-	mapel := strings.TrimSpace(req.Mapel)
 	tahunAjaran := strings.TrimSpace(req.TahunAjaran)
 	if nama == "" || tahunAjaran == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Nama dan tahun ajaran wajib diisi")
@@ -516,7 +514,6 @@ func (h *Handler) CreateKelas(c *echo.Context) error {
 		TahunAjaran: tahunAjaran,
 		Pengampu:    pengampuParam,
 		KodeKelas:   kodeKelas,
-		Mapel:       mapel,
 	})
 	if err != nil {
 		log.Println(err)
@@ -527,7 +524,6 @@ func (h *Handler) CreateKelas(c *echo.Context) error {
 		"message":    "Kelas berhasil dibuat",
 		"kode_kelas": kodeKelas,
 		"nama":       nama,
-		"mapel":      mapel,
 	})
 }
 
@@ -550,7 +546,6 @@ func parseKelasCsvTingkat(raw string) (int16, bool) {
 }
 
 type kelasCsvColumns struct {
-	mapel       int
 	nama        int
 	tingkat     int
 	tahunAjaran int
@@ -560,7 +555,6 @@ type kelasCsvColumns struct {
 
 func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 	cols := kelasCsvColumns{
-		mapel:       -1,
 		nama:        0,
 		tingkat:     1,
 		tahunAjaran: 2,
@@ -570,16 +564,12 @@ func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 		return cols
 	}
 
-	mapelIdx, namaIdx, kelasColIdx, tingkatIdx, tahunIdx, deskIdx := -1, -1, -1, -1, -1, -1
+	namaIdx, kelasColIdx, tingkatIdx, tahunIdx, deskIdx := -1, -1, -1, -1, -1
 	for i, raw := range firstRow {
 		header := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(raw, "\uFEFF")))
 		header = strings.ReplaceAll(header, "_", " ")
 		switch header {
-		case "mapel", "mata pelajaran":
-			if mapelIdx == -1 {
-				mapelIdx = i
-			}
-		case "nama", "nama kelas", "detail kelas", "rombel":
+		case "nama", "nama kelas", "detail kelas", "rombel", "mapel", "mata pelajaran":
 			if namaIdx == -1 {
 				namaIdx = i
 			}
@@ -607,13 +597,9 @@ func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 	} else if namaIdx == -1 && kelasColIdx != -1 {
 		namaIdx = kelasColIdx
 	}
-	if namaIdx == -1 && mapelIdx != -1 {
-		namaIdx = mapelIdx
-	}
 
 	if namaIdx != -1 && tingkatIdx != -1 && tahunIdx != -1 {
 		return kelasCsvColumns{
-			mapel:       mapelIdx,
 			nama:        namaIdx,
 			tingkat:     tingkatIdx,
 			tahunAjaran: tahunIdx,
@@ -622,7 +608,7 @@ func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 		}
 	}
 	first := strings.TrimSpace(strings.TrimPrefix(firstRow[0], "\uFEFF"))
-	if strings.EqualFold(first, "nama") || strings.EqualFold(first, "nama_kelas") || strings.EqualFold(first, "mapel") {
+	if strings.EqualFold(first, "nama") || strings.EqualFold(first, "nama_kelas") {
 		cols.hasHeader = true
 	}
 	return cols
@@ -714,11 +700,6 @@ func (h *Handler) UploadKelasCSV(c *echo.Context) error {
 			continue
 		}
 
-		mapel := ""
-		if cols.mapel >= 0 && cols.mapel < len(row) {
-			mapel = strings.TrimSpace(strings.TrimPrefix(row[cols.mapel], "\uFEFF"))
-		}
-
 		deskripsi := ""
 		if cols.deskripsi >= 0 && cols.deskripsi < len(row) {
 			deskripsi = strings.TrimSpace(row[cols.deskripsi])
@@ -732,7 +713,6 @@ func (h *Handler) UploadKelasCSV(c *echo.Context) error {
 			TahunAjaran: tahunAjaran,
 			Pengampu:    pgtype.Int4{Valid: false},
 			KodeKelas:   utils.GenerateHashCode(),
-			Mapel:       mapel,
 		})
 		if err != nil {
 			log.Println(err)
@@ -983,9 +963,9 @@ func (h *Handler) DownloadKelasCSVTemplate(c *echo.Context) error {
 	if _, err := requireAdminClaims(c); err != nil {
 		return err
 	}
-	const tpl = "mapel,nama,tingkat,tahun_ajaran,deskripsi\n" +
-		"Pemrograman Web,X PPLG 1,10,2026/2027,Dasar HTML CSS dan JavaScript\n" +
-		"Basis Data,XI RPL 1,11,2026/2027,Desain ERD dan SQL\n"
+	const tpl = "nama,tingkat,tahun_ajaran,deskripsi\n" +
+		"X PPLG 1,10,2026/2027,Dasar HTML CSS dan JavaScript\n" +
+		"XI RPL 1,11,2026/2027,Desain ERD dan SQL\n"
 	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="template_kelas.csv"`)
 	return c.Blob(http.StatusOK, "text/csv; charset=utf-8", []byte(tpl))
 }
@@ -1176,8 +1156,8 @@ func (h *Handler) ListAiUsage(c *echo.Context) error {
 	end := start.AddDate(0, 1, 0)
 
 	rows, err := h.db.ListAiUsageByPeriod(c.Request().Context(), db.ListAiUsageByPeriodParams{
-		Start: pgtype.Timestamp{Time: start, Valid: true},
-		End:   pgtype.Timestamp{Time: end, Valid: true},
+		Dibuat:   pgtype.Timestamp{Time: start, Valid: true},
+		Dibuat_2: pgtype.Timestamp{Time: end, Valid: true},
 	})
 	if err != nil {
 		log.Println(err)

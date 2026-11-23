@@ -6,6 +6,8 @@ definitions:
         type: string
       nama:
         type: string
+      pengampu_id:
+        type: integer
       tahun_ajaran:
         type: string
       tingkat:
@@ -281,6 +283,9 @@ definitions:
       role:
         example: murid
         type: string
+      utama:
+        example: false
+        type: boolean
     type: object
   kelas.CreateKelasRequest:
     properties:
@@ -315,7 +320,10 @@ definitions:
         example: A18D23
         type: string
       nama:
-        example: Pemrograman Dasar
+        example: X PPLG 1
+        type: string
+      nama_pengampu:
+        example: Eko Kusnandar
         type: string
       pengampu:
         example: 1
@@ -333,7 +341,7 @@ definitions:
         example: Belajar algoritma dan struktur data
         type: string
       nama:
-        example: Pemrograman Dasar Lanjutan
+        example: X PPLG 1
         type: string
     type: object
   pengguna.GetPenggunaFailure400Response:
@@ -434,6 +442,8 @@ definitions:
         items:
           type: string
         type: array
+      tenggat_waktu:
+        type: string
       tipe:
         maximum: 2
         minimum: 1
@@ -446,12 +456,18 @@ definitions:
     properties:
       deskripsi:
         type: string
+      hapus_tenggat:
+        type: boolean
       judul:
         type: string
       lampiran:
         items:
           type: string
         type: array
+      menerima_kiriman:
+        type: boolean
+      tenggat_waktu:
+        type: string
       tipe:
         maximum: 2
         minimum: 1
@@ -564,9 +580,15 @@ definitions:
         items:
           type: string
         type: array
+      menerima_kiriman:
+        example: true
+        type: boolean
       pengguna_id:
         example: 1
         type: integer
+      tenggat_waktu:
+        example: "2026-01-08T23:59:00+07:00"
+        type: string
       tipe_id:
         example: 1
         type: integer
@@ -1457,6 +1479,53 @@ paths:
       summary: Angkat Murid Menjadi Guru
       tags:
       - Kelas
+  /kelas/{kode_kelas}/anggota/{pengguna_id}/murid:
+    patch:
+      consumes:
+      - application/json
+      description: Mengubah role guru pendamping menjadi murid pada kelas tertentu
+        (khusus guru utama atau admin)
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: ID Pengguna Guru
+        in: path
+        name: pengguna_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Turunkan Guru Menjadi Murid
+      tags:
+      - Kelas
   /kelas/{kode_kelas}/gabung:
     post:
       consumes:
@@ -1522,6 +1591,50 @@ paths:
       tags:
       - Kelas
   /kelas/{kode_kelas}/postingan/{postinganID}:
+    delete:
+      description: Menghapus postingan materi atau tugas beserta pengumpulan terkait
+        (khusus guru kelas atau admin)
+      parameters:
+      - description: Kode Kelas
+        in: path
+        name: kode_kelas
+        required: true
+        type: string
+      - description: Postingan ID
+        in: path
+        name: postinganID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Hapus Postingan
+      tags:
+      - Postingan
     patch:
       consumes:
       - application/json

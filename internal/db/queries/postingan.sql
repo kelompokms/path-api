@@ -21,7 +21,7 @@ SET
     tipe_id = $6,
     menerima_kiriman = COALESCE(sqlc.narg(menerima_kiriman), menerima_kiriman),
     tenggat_waktu = CASE
-        WHEN $8::boolean THEN NULL
+        WHEN sqlc.arg(hapus_tenggat)::boolean THEN NULL
         ELSE COALESCE(sqlc.narg(tenggat_waktu), tenggat_waktu)
     END
 WHERE id = $1 AND kelas_id = $2

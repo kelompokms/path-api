@@ -1,7 +1,7 @@
 -- name: CreateKelas :exec
 WITH new_kelas AS (
-    INSERT INTO kelas (nama, deskripsi, tingkat, tahun_ajaran, pengampu, kode_kelas, mapel)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO kelas (nama, deskripsi, tingkat, tahun_ajaran, pengampu, kode_kelas)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING id, pengampu
 )
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
@@ -19,7 +19,6 @@ SELECT
     k.dibuat,
     pengampu_user.id AS pengampu,
     (COALESCE(BOOL_OR(ak.guru), FALSE) OR COALESCE(k.pengampu = sqlc.arg(pengguna_id)::integer, FALSE))::boolean AS guru,
-    k.mapel,
     COALESCE(pengampu_user.nama, '')::text AS nama_pengampu
 FROM kelas k
 JOIN pengguna caller ON caller.id = sqlc.arg(pengguna_id)::integer AND caller.aktif = TRUE
@@ -42,8 +41,7 @@ SELECT * FROM kelas WHERE kode_kelas = $1;
 UPDATE kelas
 SET
     nama = COALESCE(sqlc.narg(nama), nama),
-    deskripsi = COALESCE(sqlc.narg(deskripsi), deskripsi),
-    mapel = COALESCE(sqlc.narg(mapel), mapel)
+    deskripsi = COALESCE(sqlc.narg(deskripsi), deskripsi)
 WHERE kode_kelas = $1
 RETURNING *;
 
@@ -142,14 +140,13 @@ SELECT
     k.kode_kelas,
     k.dibuat,
     p.id AS pengampu,
-    COALESCE(p.nama, '')::text AS nama_pengampu,
-    k.mapel
+    COALESCE(p.nama, '')::text AS nama_pengampu
 FROM kelas k
 LEFT JOIN pengguna p ON p.id = k.pengampu AND p.aktif = TRUE
 WHERE (sqlc.narg(tahun_ajaran)::text IS NULL OR LOWER(k.tahun_ajaran) = LOWER(sqlc.narg(tahun_ajaran)::text))
   AND (sqlc.narg(tingkat)::smallint IS NULL OR k.tingkat = sqlc.narg(tingkat)::smallint)
-  AND (sqlc.narg(nama)::text IS NULL OR k.nama ILIKE '%' || sqlc.narg(nama)::text || '%' OR k.mapel ILIKE '%' || sqlc.narg(nama)::text || '%')
-ORDER BY k.tahun_ajaran DESC, k.tingkat ASC, k.mapel ASC, k.nama ASC;
+  AND (sqlc.narg(nama)::text IS NULL OR k.nama ILIKE '%' || sqlc.narg(nama)::text || '%')
+ORDER BY k.tahun_ajaran DESC, k.tingkat ASC, k.nama ASC;
 
 -- name: UpdatePengampuKelas :one
 UPDATE kelas

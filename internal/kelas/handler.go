@@ -17,7 +17,6 @@ func New(db *db.Queries) *Handler {
 
 type CreateKelasRequest struct {
 	Nama        string `json:"nama" validate:"required"`
-	Mapel       string `json:"mapel"`
 	Deskripsi   string `json:"deskripsi"`
 	Tingkat     int16  `json:"tingkat" validate:"required"`
 	TahunAjaran string `json:"tahun_ajaran" validate:"required"`
@@ -26,20 +25,17 @@ type CreateKelasRequest struct {
 type UpdateKelasRequest struct {
 	KodeKelas string  `json:"-" param:"kode_kelas" validate:"required"`
 	Nama      *string `json:"nama"`
-	Mapel     *string `json:"mapel"`
 	Deskripsi *string `json:"deskripsi"`
 }
 
 type UpdateKelasPayload struct {
 	Nama      *string `json:"nama" example:"X PPLG 1"`
-	Mapel     *string `json:"mapel" example:"Pemrograman Dasar Lanjutan"`
 	Deskripsi *string `json:"deskripsi" example:"Belajar algoritma dan struktur data"`
 }
 
 type ListKelasResponse struct {
 	ID           int32     `json:"id" example:"2"`
 	Nama         string    `json:"nama" example:"X PPLG 1"`
-	Mapel        string    `json:"mapel" example:"Pemrograman Dasar"`
 	Deskripsi    string    `json:"deskripsi" example:"Belajar algoritma dan struktur data"`
 	Tingkat      int16     `json:"tingkat" example:"10"`
 	TahunAjaran  string    `json:"tahun_ajaran" example:"2026/2027"`
@@ -53,7 +49,6 @@ type ListKelasResponse struct {
 type DetailKelasResponse struct {
 	ID           int32       `json:"id"`
 	Nama         string      `json:"nama"`
-	Mapel        string      `json:"mapel"`
 	Deskripsi    string      `json:"deskripsi"`
 	Tingkat      int16       `json:"tingkat"`
 	TahunAjaran  string      `json:"tahun_ajaran"`

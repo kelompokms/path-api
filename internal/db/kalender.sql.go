@@ -43,15 +43,6 @@ func (q *Queries) CreateKegiatanKalender(ctx context.Context, arg CreateKegiatan
 	return i, err
 }
 
-const deleteSemuaKegiatanKalender = `-- name: DeleteSemuaKegiatanKalender :exec
-DELETE FROM kalender_akademik
-`
-
-func (q *Queries) DeleteSemuaKegiatanKalender(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, deleteSemuaKegiatanKalender)
-	return err
-}
-
 const deleteKegiatanKalenderByID = `-- name: DeleteKegiatanKalenderByID :execrows
 DELETE FROM kalender_akademik
 WHERE id = $1
@@ -63,6 +54,47 @@ func (q *Queries) DeleteKegiatanKalenderByID(ctx context.Context, id int32) (int
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteSemuaKegiatanKalender = `-- name: DeleteSemuaKegiatanKalender :exec
+DELETE FROM kalender_akademik
+`
+
+func (q *Queries) DeleteSemuaKegiatanKalender(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteSemuaKegiatanKalender)
+	return err
+}
+
+const listKegiatanKalender = `-- name: ListKegiatanKalender :many
+SELECT id, nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai, dibuat FROM kalender_akademik
+ORDER BY tanggal_mulai ASC
+`
+
+func (q *Queries) ListKegiatanKalender(ctx context.Context) ([]KalenderAkademik, error) {
+	rows, err := q.db.Query(ctx, listKegiatanKalender)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []KalenderAkademik
+	for rows.Next() {
+		var i KalenderAkademik
+		if err := rows.Scan(
+			&i.ID,
+			&i.NamaKegiatan,
+			&i.Keterangan,
+			&i.TanggalMulai,
+			&i.TanggalSelesai,
+			&i.Dibuat,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateKegiatanKalender = `-- name: UpdateKegiatanKalender :one
@@ -98,36 +130,4 @@ func (q *Queries) UpdateKegiatanKalender(ctx context.Context, arg UpdateKegiatan
 		&i.Dibuat,
 	)
 	return i, err
-}
-
-const listKegiatanKalender = `-- name: ListKegiatanKalender :many
-SELECT id, nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai, dibuat FROM kalender_akademik
-ORDER BY tanggal_mulai ASC
-`
-
-func (q *Queries) ListKegiatanKalender(ctx context.Context) ([]KalenderAkademik, error) {
-	rows, err := q.db.Query(ctx, listKegiatanKalender)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []KalenderAkademik
-	for rows.Next() {
-		var i KalenderAkademik
-		if err := rows.Scan(
-			&i.ID,
-			&i.NamaKegiatan,
-			&i.Keterangan,
-			&i.TanggalMulai,
-			&i.TanggalSelesai,
-			&i.Dibuat,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

@@ -62,7 +62,6 @@ func (h *Handler) List(c *echo.Context) error {
 		kelas = append(kelas, DetailKelasResponse{
 			ID:           row.ID,
 			Nama:         row.Nama,
-			Mapel:        row.Mapel,
 			Deskripsi:    row.Deskripsi,
 			Tingkat:      row.Tingkat,
 			TahunAjaran:  row.TahunAjaran,
@@ -120,7 +119,6 @@ func (h *Handler) Get(c *echo.Context) error {
 	return c.JSON(http.StatusOK, DetailKelasResponse{
 		ID:          kelas.ID,
 		Nama:        kelas.Nama,
-		Mapel:       kelas.Mapel,
 		Deskripsi:   kelas.Deskripsi,
 		Tingkat:     kelas.Tingkat,
 		TahunAjaran: kelas.TahunAjaran,
@@ -186,8 +184,8 @@ func (h *Handler) Update(c *echo.Context) error {
 		return err
 	}
 
-	if req.Nama == nil && req.Deskripsi == nil && req.Mapel == nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Minimal nama, mapel, atau deskripsi harus diisi")
+	if req.Nama == nil && req.Deskripsi == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Minimal nama atau deskripsi harus diisi")
 	}
 
 	var namaParam pgtype.Text
@@ -204,16 +202,10 @@ func (h *Handler) Update(c *echo.Context) error {
 		deskripsiParam = pgtype.Text{String: strings.TrimSpace(*req.Deskripsi), Valid: true}
 	}
 
-	var mapelParam pgtype.Text
-	if req.Mapel != nil {
-		mapelParam = pgtype.Text{String: strings.TrimSpace(*req.Mapel), Valid: true}
-	}
-
 	updated, err := h.db.UpdateKelas(c.Request().Context(), db.UpdateKelasParams{
 		KodeKelas: req.KodeKelas,
 		Nama:      namaParam,
 		Deskripsi: deskripsiParam,
-		Mapel:     mapelParam,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -226,7 +218,6 @@ func (h *Handler) Update(c *echo.Context) error {
 	return c.JSON(http.StatusOK, DetailKelasResponse{
 		ID:          updated.ID,
 		Nama:        updated.Nama,
-		Mapel:       updated.Mapel,
 		Deskripsi:   updated.Deskripsi,
 		Tingkat:     updated.Tingkat,
 		TahunAjaran: updated.TahunAjaran,
@@ -549,7 +540,6 @@ func (h *Handler) Create(c *echo.Context) error {
 		TahunAjaran: tahunAjaran,
 		Pengampu:    pgtype.Int4{Valid: false},
 		KodeKelas:   kodeKelas,
-		Mapel:       strings.TrimSpace(req.Mapel),
 	})
 
 	if err != nil {

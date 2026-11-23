@@ -713,10 +713,7 @@ func (h *Handler) KoreksiTugas(c *echo.Context) error {
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	mapel := strings.TrimSpace(kelasRow.Mapel)
-	if mapel == "" {
-		mapel = strings.TrimSpace(kelasRow.Nama)
-	}
+	mapel := strings.TrimSpace(kelasRow.Nama)
 	_ = mw.WriteField("pengajar", pengajarNama)
 	_ = mw.WriteField("mata_pelajaran", mapel)
 	_ = mw.WriteField("kelas", strings.TrimSpace(kelasRow.Nama))
@@ -1157,10 +1154,7 @@ func (h *Handler) runAssessmentCheck(
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	mapel := strings.TrimSpace(ac.kelasRow.Mapel)
-	if mapel == "" {
-		mapel = strings.TrimSpace(ac.kelasRow.Nama)
-	}
+	mapel := strings.TrimSpace(ac.kelasRow.Nama)
 	_ = mw.WriteField("pengajar", ac.pengajarNama)
 	_ = mw.WriteField("mata_pelajaran", mapel)
 	_ = mw.WriteField("kelas", strings.TrimSpace(ac.kelasRow.Nama))

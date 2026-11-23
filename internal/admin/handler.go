@@ -75,7 +75,6 @@ type AdminCreatePenggunaRequest struct {
 type AdminKelasResponse struct {
 	ID           int32     `json:"id" example:"1"`
 	Nama         string    `json:"nama" example:"X PPLG 1"`
-	Mapel        string    `json:"mapel" example:"Pemrograman Web"`
 	Deskripsi    string    `json:"deskripsi" example:"Pemrograman Dasar"`
 	Tingkat      int16     `json:"tingkat" example:"10"`
 	TahunAjaran  string    `json:"tahun_ajaran" example:"2026/2027"`
@@ -88,7 +87,6 @@ type AdminKelasResponse struct {
 
 type AdminCreateKelasRequest struct {
 	Nama        string `json:"nama" validate:"required"`
-	Mapel       string `json:"mapel"`
 	Deskripsi   string `json:"deskripsi"`
 	Tingkat     int16  `json:"tingkat" validate:"required,gt=0"`
 	TahunAjaran string `json:"tahun_ajaran" validate:"required"`

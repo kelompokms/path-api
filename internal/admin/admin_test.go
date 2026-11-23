@@ -388,8 +388,8 @@ func TestListKelasAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
-		rows := pgxmock.NewRows([]string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "nama_pengampu", "mapel"}).
-			AddRow(int32(10), "X PPLG 1", "Kelas pemrograman", int16(10), "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Eko Kusnandar", "Pemrograman Web")
+		rows := pgxmock.NewRows([]string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "nama_pengampu"}).
+			AddRow(int32(10), "X PPLG 1", "Kelas pemrograman", int16(10), "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Eko Kusnandar")
 
 		mockPool.ExpectQuery("FROM kelas k").
 			WithArgs(
@@ -585,7 +585,7 @@ func TestCreateAndUploadKelasCSVAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
+			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := h.CreateKelas(c)
@@ -611,10 +611,10 @@ func TestCreateAndUploadKelasCSVAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
+			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 		mockPool.ExpectExec("INSERT").
-			WithArgs("XI RPL 1", "Basis Data", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
+			WithArgs("XI RPL 1", "Basis Data", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = h.UploadKelasCSV(c)
@@ -641,10 +641,10 @@ func TestCreateAndUploadKelasCSVAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Fiber Optic", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "Fiber Optic").
+			WithArgs("Fiber Optic", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Bahasa Indonesia", "", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "Bahasa Indonesia").
+			WithArgs("Bahasa Indonesia", "", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = h.UploadKelasCSV(c)
@@ -712,8 +712,8 @@ func TestUpdatePengampuKelasAdmin(t *testing.T) {
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		mockPool.ExpectQuery("UPDATE kelas").
 			WithArgs("PPLG10", pgtype.Int4{Int32: 2, Valid: true}).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}).
-				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Pemrograman Web"))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}).
+				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}))
 
 		err := h.UpdatePengampuKelas(c)
 		require.NoError(t, err)
@@ -759,8 +759,8 @@ func TestUpdatePengampuKelasAdmin(t *testing.T) {
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		mockPool.ExpectQuery("UPDATE kelas").
 			WithArgs("PPLG10", pgtype.Int4{Valid: false}).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}).
-				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Valid: false}, "Pemrograman Web"))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}).
+				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Valid: false}))
 
 		err := h.UpdatePengampuKelas(c)
 		require.NoError(t, err)
@@ -976,7 +976,7 @@ func TestNewAdminEndpoints(t *testing.T) {
 		setAuthContext(c1, 1, true)
 		require.NoError(t, h.DownloadKelasCSVTemplate(c1))
 		assert.Equal(t, http.StatusOK, rec1.Code)
-		assert.Contains(t, rec1.Body.String(), "mapel,nama,tingkat,tahun_ajaran,deskripsi")
+		assert.Contains(t, rec1.Body.String(), "nama,tingkat,tahun_ajaran,deskripsi")
 
 		req2 := httptest.NewRequest(http.MethodGet, "/admin/kalender/template", nil)
 		rec2 := httptest.NewRecorder()

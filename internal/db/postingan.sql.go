@@ -120,20 +120,6 @@ func (q *Queries) DeletePengumpulanByPostinganID(ctx context.Context, postinganI
 	return err
 }
 
-const deletePostingan = `-- name: DeletePostingan :execrows
-DELETE FROM postingan WHERE id = $1 AND kelas_id = $2
-`
-
-type DeletePostinganParams struct {
-	ID      int32 `json:"id"`
-	KelasID int32 `json:"kelas_id"`
-}
-
-func (q *Queries) DeletePostingan(ctx context.Context, arg DeletePostinganParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deletePostingan, arg.ID, arg.KelasID)
-	return result.RowsAffected(), err
-}
-
 const deletePengumpulanTugas = `-- name: DeletePengumpulanTugas :many
 DELETE FROM pengumpulan_tugas
 WHERE postingan_id = $1 AND pengguna_id = $2
@@ -170,6 +156,23 @@ func (q *Queries) DeletePengumpulanTugas(ctx context.Context, arg DeletePengumpu
 		return nil, err
 	}
 	return items, nil
+}
+
+const deletePostingan = `-- name: DeletePostingan :execrows
+DELETE FROM postingan WHERE id = $1 AND kelas_id = $2
+`
+
+type DeletePostinganParams struct {
+	ID      int32 `json:"id"`
+	KelasID int32 `json:"kelas_id"`
+}
+
+func (q *Queries) DeletePostingan(ctx context.Context, arg DeletePostinganParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePostingan, arg.ID, arg.KelasID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getPengumpulanTugas = `-- name: GetPengumpulanTugas :one

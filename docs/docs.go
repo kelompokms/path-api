@@ -1211,6 +1211,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/kelas/{kode_kelas}/anggota/{pengguna_id}/murid": {
+            "patch": {
+                "description": "Mengubah role guru pendamping menjadi murid pada kelas tertentu (khusus guru utama atau admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Kelas"
+                ],
+                "summary": "Turunkan Guru Menjadi Murid",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID Pengguna Guru",
+                        "name": "pengguna_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/kelas/{kode_kelas}/gabung": {
             "post": {
                 "description": "Join Kelas menggunakan kode dan mengembalikan message",
@@ -1310,6 +1379,70 @@ const docTemplate = `{
             }
         },
         "/kelas/{kode_kelas}/postingan/{postinganID}": {
+            "delete": {
+                "description": "Menghapus postingan materi atau tugas beserta pengumpulan terkait (khusus guru kelas atau admin)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Postingan"
+                ],
+                "summary": "Hapus Postingan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Postingan ID",
+                        "name": "postinganID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "description": "Memperbarui postingan yang ada pada kelas tertentu (khusus guru kelas)",
                 "consumes": [
@@ -2350,6 +2483,9 @@ const docTemplate = `{
                 "nama": {
                     "type": "string"
                 },
+                "pengampu_id": {
+                    "type": "integer"
+                },
                 "tahun_ajaran": {
                     "type": "string"
                 },
@@ -2732,6 +2868,10 @@ const docTemplate = `{
                 "role": {
                     "type": "string",
                     "example": "murid"
+                },
+                "utama": {
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -2782,7 +2922,11 @@ const docTemplate = `{
                 },
                 "nama": {
                     "type": "string",
-                    "example": "Pemrograman Dasar"
+                    "example": "X PPLG 1"
+                },
+                "nama_pengampu": {
+                    "type": "string",
+                    "example": "Eko Kusnandar"
                 },
                 "pengampu": {
                     "type": "integer",
@@ -2807,7 +2951,7 @@ const docTemplate = `{
                 },
                 "nama": {
                     "type": "string",
-                    "example": "Pemrograman Dasar Lanjutan"
+                    "example": "X PPLG 1"
                 }
             }
         },
@@ -2957,6 +3101,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "tenggat_waktu": {
+                    "type": "string"
+                },
                 "tipe": {
                     "type": "integer",
                     "maximum": 2,
@@ -2974,6 +3121,9 @@ const docTemplate = `{
                 "deskripsi": {
                     "type": "string"
                 },
+                "hapus_tenggat": {
+                    "type": "boolean"
+                },
                 "judul": {
                     "type": "string"
                 },
@@ -2982,6 +3132,12 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "menerima_kiriman": {
+                    "type": "boolean"
+                },
+                "tenggat_waktu": {
+                    "type": "string"
                 },
                 "tipe": {
                     "type": "integer",
@@ -3137,9 +3293,17 @@ const docTemplate = `{
                         "[\"/uploads/2026/11/08/abc.pdf\"]"
                     ]
                 },
+                "menerima_kiriman": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "pengguna_id": {
                     "type": "integer",
                     "example": 1
+                },
+                "tenggat_waktu": {
+                    "type": "string",
+                    "example": "2026-01-08T23:59:00+07:00"
                 },
                 "tipe_id": {
                     "type": "integer",
