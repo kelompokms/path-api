@@ -33,3 +33,15 @@ func GetSecret() string {
 
 	return secret
 }
+
+func GetAIAPIURL() string {
+	url := os.Getenv("AI_API_URL")
+	if url == "" {
+		return "https://ai.pathclass.app"
+	}
+	return url
+}
+
+func GetAIAPIKey() string {
+	return os.Getenv("AI_API_KEY")
+}

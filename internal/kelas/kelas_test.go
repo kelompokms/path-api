@@ -38,8 +38,8 @@ func setAuthContextWithRole(c *echo.Context, userID int32, role string) {
 	c.Set("user", token)
 }
 
-var kelasColumns = []string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}
-var listKelasColumns = []string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "guru"}
+var kelasColumns = []string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}
+var listKelasColumns = []string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "guru", "mapel", "nama_pengampu"}
 var anggotaColumns = []string{"pengguna_id", "nama", "email", "profile_picture", "guru", "dibuat"}
 
 func TestListKelas(t *testing.T) {
@@ -62,8 +62,8 @@ func TestListKelas(t *testing.T) {
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 
 		rows := pgxmock.NewRows(listKelasColumns).
-			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false).
-			AddRow(int32(2), "Fisika", "Kelas fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true)
+			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false, "Matematika", "Pak Budi").
+			AddRow(int32(2), "Fisika", "Kelas fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true, "Fisika", "Pak Eko")
 
 		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
 
@@ -88,8 +88,8 @@ func TestListKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		rows := pgxmock.NewRows(listKelasColumns).
-			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false).
-			AddRow(int32(2), "Fisika", "Kelas fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true)
+			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false, "Matematika", "Pak Budi").
+			AddRow(int32(2), "Fisika", "Kelas fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true, "Fisika", "Pak Eko")
 
 		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
 
@@ -113,8 +113,8 @@ func TestListKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		rows := pgxmock.NewRows(listKelasColumns).
-			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false).
-			AddRow(int32(2), "Fisika", "Kelas fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true)
+			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", now, pgtype.Int4{Int32: 2, Valid: true}, false, "Matematika", "Pak Budi").
+			AddRow(int32(2), "Fisika", "Kelas fisika", int16(11), "2026/2027", "DEF456", now, pgtype.Int4{Int32: 1, Valid: true}, true, "Fisika", "Pak Eko")
 
 		mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(rows)
 
@@ -209,7 +209,7 @@ func TestGetKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		rows := pgxmock.NewRows(kelasColumns).
-			AddRow(int32(1), "Matematika", int16(10), "Deskripsi kelas", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true})
+			AddRow(int32(1), "Matematika", int16(10), "Deskripsi kelas", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika")
 
 		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(rows)
 
@@ -230,7 +230,7 @@ func TestGetKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		rows := pgxmock.NewRows(kelasColumns).
-			AddRow(int32(1), "Matematika", int16(10), "Deskripsi kelas", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true})
+			AddRow(int32(1), "Matematika", int16(10), "Deskripsi kelas", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika")
 
 		mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(rows)
 		mockPool.ExpectQuery("SELECT COALESCE").WithArgs(int32(1), int32(1)).WillReturnRows(
@@ -288,8 +288,9 @@ func TestListAnggotaKelas(t *testing.T) {
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 
-		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
-			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		mockPool.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows(kelasColumns).
+				AddRow(int32(1), "Matematika", int16(10), "Desc", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika"),
 		)
 		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(2)).WillReturnRows(
 			pgxmock.NewRows([]string{"is_anggota"}).AddRow(true),
@@ -307,9 +308,11 @@ func TestListAnggotaKelas(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 		require.Len(t, resp, 2)
 		assert.True(t, resp[0].Guru)
+		assert.True(t, resp[0].Utama)
 		assert.Equal(t, "guru", resp[0].Role)
 		assert.Equal(t, "Pak Guru", resp[0].Nama)
 		assert.False(t, resp[1].Guru)
+		assert.False(t, resp[1].Utama)
 		assert.Equal(t, "murid", resp[1].Role)
 		assert.Equal(t, "Budi Murid", resp[1].Nama)
 		assert.Equal(t, "pfp.jpg", resp[1].ProfilePicture)
@@ -325,8 +328,10 @@ func TestListAnggotaKelas(t *testing.T) {
 		})
 		setAuthContext(c, 99, false)
 
-		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("ABC123").WillReturnRows(
-			pgxmock.NewRows([]string{"id"}).AddRow(int32(1)),
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+		mockPool.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").WithArgs("ABC123").WillReturnRows(
+			pgxmock.NewRows(kelasColumns).
+				AddRow(int32(1), "Matematika", int16(10), "Desc", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika"),
 		)
 		mockPool.ExpectQuery("SELECT EXISTS").WithArgs("ABC123", int32(99)).WillReturnRows(
 			pgxmock.NewRows([]string{"is_anggota"}).AddRow(false),
@@ -349,7 +354,7 @@ func TestListAnggotaKelas(t *testing.T) {
 		})
 		setAuthContext(c, 2, false)
 
-		mockPool.ExpectQuery("SELECT id FROM kelas").WithArgs("MISSING").WillReturnError(pgx.ErrNoRows)
+		mockPool.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").WithArgs("MISSING").WillReturnError(pgx.ErrNoRows)
 
 		err := h.ListAnggota(c)
 		assert.Error(t, err)
@@ -402,7 +407,7 @@ func TestCreateKelas(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Fisika", "Fisika dasar", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("Fisika", "Fisika dasar", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := h.Create(c)
@@ -467,7 +472,7 @@ func TestCreateKelas(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Fisika", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("Fisika", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
 			WillReturnError(errors.New("db error"))
 
 		err := h.Create(c)
@@ -647,9 +652,10 @@ func TestUpdateKelas(t *testing.T) {
 			"ABC123",
 			pgtype.Text{String: nama, Valid: true},
 			pgtype.Text{String: deskripsi, Valid: true},
+			pgtype.Text{},
 		).WillReturnRows(
 			pgxmock.NewRows(kelasColumns).
-				AddRow(int32(10), nama, int16(10), deskripsi, "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}),
+				AddRow(int32(10), nama, int16(10), deskripsi, "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika"),
 		)
 
 		err := h.Update(c)
@@ -927,7 +933,7 @@ func TestKelasDibuatUsesGMT7(t *testing.T) {
 
 	mockPool.ExpectQuery("SELECT").WithArgs(int32(1)).WillReturnRows(
 		pgxmock.NewRows(listKelasColumns).
-			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", pgtype.Timestamp{Time: utcTime, Valid: true}, pgtype.Int4{}, false),
+			AddRow(int32(1), "Matematika", "Kelas matematika", int16(10), "2026/2027", "ABC123", pgtype.Timestamp{Time: utcTime, Valid: true}, pgtype.Int4{}, false, "Matematika", ""),
 	)
 
 	require.NoError(t, h.List(c))
@@ -940,11 +946,107 @@ func TestKelasDibuatUsesGMT7(t *testing.T) {
 	getCtx.SetPathValues(echo.PathValues{{Name: "kode_kelas", Value: "ABC123"}})
 	mockPool.ExpectQuery("SELECT").WithArgs("ABC123").WillReturnRows(
 		pgxmock.NewRows(kelasColumns).
-			AddRow(int32(1), "Matematika", int16(10), "Deskripsi", "2026/2027", "ABC123", pgtype.Timestamp{Time: utcTime, Valid: true}, pgtype.Int4{}),
+			AddRow(int32(1), "Matematika", int16(10), "Deskripsi", "2026/2027", "ABC123", pgtype.Timestamp{Time: utcTime, Valid: true}, pgtype.Int4{}, "Matematika"),
 	)
 
 	require.NoError(t, h.Get(getCtx))
 	assert.Equal(t, http.StatusOK, getRec.Code)
 	assert.Contains(t, getRec.Body.String(), expectedWIB)
 	assert.NoError(t, mockPool.ExpectationsWereMet())
+}
+
+func TestDemoteGuru(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+	now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+
+	t.Run("guru utama can demote co-teacher to murid", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPatch, "/kelas/ABC123/anggota/2/murid", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "pengguna_id", Value: "2"},
+		})
+		setAuthContext(c, 1, false)
+
+		mockPool.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").
+			WithArgs("ABC123").
+			WillReturnRows(pgxmock.NewRows(kelasColumns).
+				AddRow(int32(10), "Matematika", int16(10), "Desc", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika"))
+		mockPool.ExpectQuery("SELECT").
+			WithArgs("ABC123").
+			WillReturnRows(pgxmock.NewRows(anggotaColumns).
+				AddRow(int32(1), "Guru Utama", "utama@example.com", pgtype.Text{}, true, now).
+				AddRow(int32(2), "Guru Kedua", "kedua@example.com", pgtype.Text{}, true, now))
+		mockPool.ExpectExec("UPDATE anggota_kelas").
+			WithArgs(int32(2), "ABC123", false).
+			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+		require.NoError(t, h.DemoteGuru(c))
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), "Berhasil menurunkan guru menjadi murid")
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("co-teacher cannot demote another guru", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPatch, "/kelas/ABC123/anggota/3/murid", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "pengguna_id", Value: "3"},
+		})
+		setAuthContext(c, 2, false)
+
+		mockPool.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").
+			WithArgs("ABC123").
+			WillReturnRows(pgxmock.NewRows(kelasColumns).
+				AddRow(int32(10), "Matematika", int16(10), "Desc", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika"))
+		mockPool.ExpectQuery("SELECT").
+			WithArgs("ABC123").
+			WillReturnRows(pgxmock.NewRows(anggotaColumns).
+				AddRow(int32(1), "Guru Utama", "utama@example.com", pgtype.Text{}, true, now).
+				AddRow(int32(2), "Guru Kedua", "kedua@example.com", pgtype.Text{}, true, now).
+				AddRow(int32(3), "Guru Ketiga", "ketiga@example.com", pgtype.Text{}, true, now))
+
+		err := h.DemoteGuru(c)
+		require.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusForbidden, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("admin cannot demote guru utama", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPatch, "/kelas/ABC123/anggota/1/murid", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{
+			{Name: "kode_kelas", Value: "ABC123"},
+			{Name: "pengguna_id", Value: "1"},
+		})
+		setAuthContext(c, 99, true)
+
+		mockPool.ExpectQuery("SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas").
+			WithArgs("ABC123").
+			WillReturnRows(pgxmock.NewRows(kelasColumns).
+				AddRow(int32(10), "Matematika", int16(10), "Desc", "2026/2027", "ABC123", now, pgtype.Int4{Int32: 1, Valid: true}, "Matematika"))
+		mockPool.ExpectQuery("SELECT").
+			WithArgs("ABC123").
+			WillReturnRows(pgxmock.NewRows(anggotaColumns).
+				AddRow(int32(1), "Guru Utama", "utama@example.com", pgtype.Text{}, true, now))
+
+		err := h.DemoteGuru(c)
+		require.Error(t, err)
+		httpErr, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
 }

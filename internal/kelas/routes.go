@@ -11,6 +11,7 @@ func (h *Handler) Routes(e *echo.Group) {
 	kelas.PATCH("/:kode_kelas", h.Update)
 	kelas.GET("/:kode_kelas/anggota", h.ListAnggota)
 	kelas.PATCH("/:kode_kelas/anggota/:pengguna_id/guru", h.PromoteGuru)
+	kelas.PATCH("/:kode_kelas/anggota/:pengguna_id/murid", h.DemoteGuru)
 	kelas.POST("/:kode_kelas/gabung", h.Join)
 	kelas.POST("/:kode_kelas/keluar", h.Leave)
 }

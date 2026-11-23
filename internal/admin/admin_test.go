@@ -388,8 +388,8 @@ func TestListKelasAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
-		rows := pgxmock.NewRows([]string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "nama_pengampu"}).
-			AddRow(int32(10), "X PPLG 1", "Kelas pemrograman", int16(10), "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Eko Kusnandar")
+		rows := pgxmock.NewRows([]string{"id", "nama", "deskripsi", "tingkat", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "nama_pengampu", "mapel"}).
+			AddRow(int32(10), "X PPLG 1", "Kelas pemrograman", int16(10), "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Eko Kusnandar", "Pemrograman Web")
 
 		mockPool.ExpectQuery("FROM kelas k").
 			WithArgs(
@@ -585,7 +585,7 @@ func TestCreateAndUploadKelasCSVAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err := h.CreateKelas(c)
@@ -611,10 +611,10 @@ func TestCreateAndUploadKelasCSVAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("X PPLG 1", "Pemrograman", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 		mockPool.ExpectExec("INSERT").
-			WithArgs("XI RPL 1", "Basis Data", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("XI RPL 1", "Basis Data", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "").
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = h.UploadKelasCSV(c)
@@ -641,10 +641,10 @@ func TestCreateAndUploadKelasCSVAdmin(t *testing.T) {
 		setAuthContext(c, 1, true)
 
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Fiber Optic", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("Fiber Optic", "", int16(10), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "Fiber Optic").
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 		mockPool.ExpectExec("INSERT").
-			WithArgs("Bahasa Indonesia", "", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg()).
+			WithArgs("Bahasa Indonesia", "", int16(11), "2026/2027", pgtype.Int4{Valid: false}, pgxmock.AnyArg(), "Bahasa Indonesia").
 			WillReturnResult(pgxmock.NewResult("INSERT", 1))
 
 		err = h.UploadKelasCSV(c)
@@ -712,8 +712,8 @@ func TestUpdatePengampuKelasAdmin(t *testing.T) {
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		mockPool.ExpectQuery("UPDATE kelas").
 			WithArgs("PPLG10", pgtype.Int4{Int32: 2, Valid: true}).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}).
-				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}).
+				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Int32: 2, Valid: true}, "Pemrograman Web"))
 
 		err := h.UpdatePengampuKelas(c)
 		require.NoError(t, err)
@@ -759,8 +759,8 @@ func TestUpdatePengampuKelasAdmin(t *testing.T) {
 		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
 		mockPool.ExpectQuery("UPDATE kelas").
 			WithArgs("PPLG10", pgtype.Int4{Valid: false}).
-			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu"}).
-				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Valid: false}))
+			WillReturnRows(pgxmock.NewRows([]string{"id", "nama", "tingkat", "deskripsi", "tahun_ajaran", "kode_kelas", "dibuat", "pengampu", "mapel"}).
+				AddRow(int32(10), "X PPLG 1", int16(10), "Desc", "2026/2027", "PPLG10", now, pgtype.Int4{Valid: false}, "Pemrograman Web"))
 
 		err := h.UpdatePengampuKelas(c)
 		require.NoError(t, err)
@@ -956,6 +956,132 @@ func TestDeletePenggunaAdmin(t *testing.T) {
 		err = h.DeletePengguna(cMissing)
 		require.Error(t, err)
 		assert.Equal(t, http.StatusNotFound, err.(*echo.HTTPError).Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+}
+
+func TestNewAdminEndpoints(t *testing.T) {
+	mockPool, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mockPool.Close()
+
+	h := New(db.New(mockPool))
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+
+	t.Run("download kelas and kalender csv templates", func(t *testing.T) {
+		req1 := httptest.NewRequest(http.MethodGet, "/admin/kelas/csv/template", nil)
+		rec1 := httptest.NewRecorder()
+		c1 := e.NewContext(req1, rec1)
+		setAuthContext(c1, 1, true)
+		require.NoError(t, h.DownloadKelasCSVTemplate(c1))
+		assert.Equal(t, http.StatusOK, rec1.Code)
+		assert.Contains(t, rec1.Body.String(), "mapel,nama,tingkat,tahun_ajaran,deskripsi")
+
+		req2 := httptest.NewRequest(http.MethodGet, "/admin/kalender/template", nil)
+		rec2 := httptest.NewRecorder()
+		c2 := e.NewContext(req2, rec2)
+		setAuthContext(c2, 1, true)
+		require.NoError(t, h.DownloadKalenderCSVTemplate(c2))
+		assert.Equal(t, http.StatusOK, rec2.Code)
+		assert.Contains(t, rec2.Body.String(), "nama_kegiatan,tanggal_mulai,tanggal_selesai,keterangan")
+	})
+
+	t.Run("update and delete kalender agenda", func(t *testing.T) {
+		tglMulai, _ := time.Parse("2006-01-02", "2026-11-20")
+		tglSelesai, _ := time.Parse("2006-01-02", "2026-11-22")
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+
+		req := httptest.NewRequest(http.MethodPatch, "/admin/kalender/agenda/5", bytes.NewBufferString(`{"nama_kegiatan":"Rapat Updated","keterangan":"Baru","tanggal_mulai":"2026-11-20","tanggal_selesai":"2026-11-22"}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "agendaID", Value: "5"}})
+		setAuthContext(c, 1, true)
+
+		mockPool.ExpectQuery("UPDATE kalender_akademik").
+			WithArgs(int32(5), "Rapat Updated", "Baru", pgtype.Date{Time: tglMulai, Valid: true}, pgtype.Date{Time: tglSelesai, Valid: true}).
+			WillReturnRows(pgxmock.NewRows([]string{"id", "nama_kegiatan", "keterangan", "tanggal_mulai", "tanggal_selesai", "dibuat"}).
+				AddRow(int32(5), "Rapat Updated", "Baru", pgtype.Date{Time: tglMulai, Valid: true}, pgtype.Date{Time: tglSelesai, Valid: true}, now))
+
+		require.NoError(t, h.UpdateAgendaKalender(c))
+		assert.Equal(t, http.StatusOK, rec.Code)
+
+		reqDel := httptest.NewRequest(http.MethodDelete, "/admin/kalender/agenda/5", nil)
+		recDel := httptest.NewRecorder()
+		cDel := e.NewContext(reqDel, recDel)
+		cDel.SetPathValues(echo.PathValues{{Name: "agendaID", Value: "5"}})
+		setAuthContext(cDel, 1, true)
+
+		mockPool.ExpectExec("DELETE FROM kalender_akademik").WithArgs(int32(5)).WillReturnResult(pgxmock.NewResult("DELETE", 1))
+		require.NoError(t, h.DeleteAgendaKalender(cDel))
+		assert.Equal(t, http.StatusOK, recDel.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("list and update bantuan konten", func(t *testing.T) {
+		now := pgtype.Timestamp{Time: time.Now(), Valid: true}
+		req := httptest.NewRequest(http.MethodGet, "/bantuan", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 2, false)
+
+		mockPool.ExpectQuery("FROM bantuan_konten").WillReturnRows(
+			pgxmock.NewRows([]string{"kunci", "judul", "isi", "diperbarui"}).
+				AddRow("panduan_ai", "Panduan AI", "Isi panduan", now).
+				AddRow("etika_ai", "Etika Penggunaan AI", "Isi etika", now),
+		)
+		require.NoError(t, h.ListBantuan(c))
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Body.String(), `"editable":true`)
+		assert.Contains(t, rec.Body.String(), `"editable":false`)
+
+		// Reject editing etika_ai
+		reqBad := httptest.NewRequest(http.MethodPatch, "/admin/bantuan/etika_ai", bytes.NewBufferString(`{"isi":"Baru"}`))
+		reqBad.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		recBad := httptest.NewRecorder()
+		cBad := e.NewContext(reqBad, recBad)
+		cBad.SetPathValues(echo.PathValues{{Name: "kunci", Value: "etika_ai"}})
+		setAuthContext(cBad, 1, true)
+		err := h.UpdateBantuan(cBad)
+		require.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, err.(*echo.HTTPError).Code)
+
+		// Update panduan_ai
+		reqOk := httptest.NewRequest(http.MethodPatch, "/admin/bantuan/panduan_ai", bytes.NewBufferString(`{"isi":"Panduan terbaru"}`))
+		reqOk.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		recOk := httptest.NewRecorder()
+		cOk := e.NewContext(reqOk, recOk)
+		cOk.SetPathValues(echo.PathValues{{Name: "kunci", Value: "panduan_ai"}})
+		setAuthContext(cOk, 1, true)
+		mockPool.ExpectQuery("UPDATE bantuan_konten").WithArgs("panduan_ai", "Panduan terbaru").WillReturnRows(
+			pgxmock.NewRows([]string{"kunci", "judul", "isi", "diperbarui"}).AddRow("panduan_ai", "Panduan AI", "Panduan terbaru", now),
+		)
+		require.NoError(t, h.UpdateBantuan(cOk))
+		assert.Equal(t, http.StatusOK, recOk.Code)
+		assert.NoError(t, mockPool.ExpectationsWereMet())
+	})
+
+	t.Run("list ai usage summary", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/admin/ai/usage?bulan=11&tahun=2026", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, true)
+
+		mockPool.ExpectQuery("FROM ai_usage_log al").WithArgs(pgxmock.AnyArg(), pgxmock.AnyArg()).WillReturnRows(
+			pgxmock.NewRows([]string{"pengguna_id", "role", "jumlah"}).
+				AddRow(int32(2), "guru", int32(5)).
+				AddRow(int32(3), "murid", int32(8)),
+		)
+
+		require.NoError(t, h.ListAiUsage(c))
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var resp AiUsageSummaryResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.Equal(t, int32(5), resp.TotalGuru)
+		assert.Equal(t, int32(8), resp.TotalSiswa)
+		assert.Equal(t, int32(13), resp.TotalSemua)
+		require.Len(t, resp.Users, 2)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
 }

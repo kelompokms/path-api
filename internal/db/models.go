@@ -33,6 +33,20 @@ type KalenderAkademik struct {
 	Dibuat         pgtype.Timestamp `json:"dibuat"`
 }
 
+type BantuanKonten struct {
+	Kunci      string           `json:"kunci"`
+	Judul      string           `json:"judul"`
+	Isi        string           `json:"isi"`
+	Diperbarui pgtype.Timestamp `json:"diperbarui"`
+}
+
+type AiUsageLog struct {
+	ID         int32            `json:"id"`
+	PenggunaID int32            `json:"pengguna_id"`
+	Fitur      string           `json:"fitur"`
+	Dibuat     pgtype.Timestamp `json:"dibuat"`
+}
+
 type Kela struct {
 	ID          int32            `json:"id"`
 	Nama        string           `json:"nama"`
@@ -42,6 +56,7 @@ type Kela struct {
 	KodeKelas   string           `json:"kode_kelas"`
 	Dibuat      pgtype.Timestamp `json:"dibuat"`
 	Pengampu    pgtype.Int4      `json:"pengampu"`
+	Mapel       string           `json:"mapel"`
 }
 
 type OauthAccount struct {
@@ -75,14 +90,16 @@ type PengumpulanTuga struct {
 }
 
 type Postingan struct {
-	ID         int32            `json:"id"`
-	Judul      string           `json:"judul"`
-	Deskripsi  pgtype.Text      `json:"deskripsi"`
-	Lampiran   []string         `json:"lampiran"`
-	PenggunaID int32            `json:"pengguna_id"`
-	KelasID    int32            `json:"kelas_id"`
-	TipeID     int32            `json:"tipe_id"`
-	Dibuat     pgtype.Timestamp `json:"dibuat"`
+	ID              int32            `json:"id"`
+	Judul           string           `json:"judul"`
+	Deskripsi       pgtype.Text      `json:"deskripsi"`
+	Lampiran        []string         `json:"lampiran"`
+	PenggunaID      int32            `json:"pengguna_id"`
+	KelasID         int32            `json:"kelas_id"`
+	TipeID          int32            `json:"tipe_id"`
+	Dibuat          pgtype.Timestamp `json:"dibuat"`
+	MenerimaKiriman bool             `json:"menerima_kiriman"`
+	TenggatWaktu    pgtype.Timestamp `json:"tenggat_waktu"`
 }
 
 type RolePengguna struct {

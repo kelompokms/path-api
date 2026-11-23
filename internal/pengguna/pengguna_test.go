@@ -178,6 +178,28 @@ func TestUpdateProfilePicture(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.NoError(t, mockPool.ExpectationsWereMet())
 	})
+
+	t.Run("returns 400 on invalid profile picture file type", func(t *testing.T) {
+		var body bytes.Buffer
+		w := multipart.NewWriter(&body)
+		part, err := w.CreateFormFile("profile_picture", "notes.txt")
+		require.NoError(t, err)
+		_, err = part.Write([]byte("not an image"))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+
+		req := httptest.NewRequest(http.MethodPatch, "/pengguna/profile-picture", &body)
+		req.Header.Set(echo.HeaderContentType, w.FormDataContentType())
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		setAuthContext(c, 1, false)
+
+		err = h.UpdateProfilePicture(c)
+		require.Error(t, err)
+		var httpErr *echo.HTTPError
+		require.ErrorAs(t, err, &httpErr)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+	})
 }
 
 func TestResetPassword(t *testing.T) {

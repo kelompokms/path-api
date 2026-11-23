@@ -1,6 +1,7 @@
 package pengguna
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"path-api/internal/db"
@@ -153,6 +154,10 @@ func (h *Handler) UpdateProfilePicture(c *echo.Context) error {
 
 	path, err := files.SaveProfilePicture(claims.UserID, req.ProfilePicture)
 	if err != nil {
+		var valErr *files.ProfilePictureValidationError
+		if errors.As(err, &valErr) {
+			return echo.NewHTTPError(http.StatusBadRequest, valErr.Message)
+		}
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui foto profil")
 	}

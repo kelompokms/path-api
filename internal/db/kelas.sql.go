@@ -39,8 +39,8 @@ func (q *Queries) CheckAnggotaKelas(ctx context.Context, arg CheckAnggotaKelasPa
 
 const createKelas = `-- name: CreateKelas :exec
 WITH new_kelas AS (
-    INSERT INTO kelas (nama, deskripsi, tingkat, tahun_ajaran, pengampu, kode_kelas)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO kelas (nama, deskripsi, tingkat, tahun_ajaran, pengampu, kode_kelas, mapel)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id, pengampu
 )
 INSERT INTO anggota_kelas (pengguna_id, kelas_id, guru)
@@ -55,6 +55,7 @@ type CreateKelasParams struct {
 	TahunAjaran string      `json:"tahun_ajaran"`
 	Pengampu    pgtype.Int4 `json:"pengampu"`
 	KodeKelas   string      `json:"kode_kelas"`
+	Mapel       string      `json:"mapel"`
 }
 
 func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) error {
@@ -65,12 +66,13 @@ func (q *Queries) CreateKelas(ctx context.Context, arg CreateKelasParams) error 
 		arg.TahunAjaran,
 		arg.Pengampu,
 		arg.KodeKelas,
+		arg.Mapel,
 	)
 	return err
 }
 
 const getKelas = `-- name: GetKelas :one
-SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu FROM kelas WHERE kode_kelas = $1
+SELECT id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel FROM kelas WHERE kode_kelas = $1
 `
 
 func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) {
@@ -85,6 +87,7 @@ func (q *Queries) GetKelas(ctx context.Context, kodeKelas string) (Kela, error) 
 		&i.KodeKelas,
 		&i.Dibuat,
 		&i.Pengampu,
+		&i.Mapel,
 	)
 	return i, err
 }
@@ -191,13 +194,14 @@ SELECT
     k.kode_kelas,
     k.dibuat,
     p.id AS pengampu,
-    COALESCE(p.nama, '')::text AS nama_pengampu
+    COALESCE(p.nama, '')::text AS nama_pengampu,
+    k.mapel
 FROM kelas k
 LEFT JOIN pengguna p ON p.id = k.pengampu AND p.aktif = TRUE
 WHERE ($1::text IS NULL OR LOWER(k.tahun_ajaran) = LOWER($1::text))
   AND ($2::smallint IS NULL OR k.tingkat = $2::smallint)
-  AND ($3::text IS NULL OR k.nama ILIKE '%' || $3::text || '%')
-ORDER BY k.tahun_ajaran DESC, k.tingkat ASC, k.nama ASC
+  AND ($3::text IS NULL OR k.nama ILIKE '%' || $3::text || '%' OR k.mapel ILIKE '%' || $3::text || '%')
+ORDER BY k.tahun_ajaran DESC, k.tingkat ASC, k.mapel ASC, k.nama ASC
 `
 
 type ListAllKelasParams struct {
@@ -216,6 +220,7 @@ type ListAllKelasRow struct {
 	Dibuat       pgtype.Timestamp `json:"dibuat"`
 	Pengampu     pgtype.Int4      `json:"pengampu"`
 	NamaPengampu string           `json:"nama_pengampu"`
+	Mapel        string           `json:"mapel"`
 }
 
 func (q *Queries) ListAllKelas(ctx context.Context, arg ListAllKelasParams) ([]ListAllKelasRow, error) {
@@ -237,6 +242,7 @@ func (q *Queries) ListAllKelas(ctx context.Context, arg ListAllKelasParams) ([]L
 			&i.Dibuat,
 			&i.Pengampu,
 			&i.NamaPengampu,
+			&i.Mapel,
 		); err != nil {
 			return nil, err
 		}
@@ -326,27 +332,31 @@ SELECT
     k.kode_kelas,
     k.dibuat,
     pengampu_user.id AS pengampu,
-    (COALESCE(BOOL_OR(ak.guru), FALSE) OR COALESCE(k.pengampu = $1::integer, FALSE))::boolean AS guru
+    (COALESCE(BOOL_OR(ak.guru), FALSE) OR COALESCE(k.pengampu = $1::integer, FALSE))::boolean AS guru,
+    k.mapel,
+    COALESCE(pengampu_user.nama, '')::text AS nama_pengampu
 FROM kelas k
 JOIN pengguna caller ON caller.id = $1::integer AND caller.aktif = TRUE
 LEFT JOIN pengguna pengampu_user ON pengampu_user.id = k.pengampu AND pengampu_user.aktif = TRUE
 LEFT JOIN anggota_kelas ak
     ON ak.kelas_id = k.id AND ak.pengguna_id = $1::integer
 WHERE ak.pengguna_id = $1::integer OR k.pengampu = $1::integer
-GROUP BY k.id, pengampu_user.id
+GROUP BY k.id, pengampu_user.id, pengampu_user.nama
 ORDER BY k.dibuat DESC, k.id DESC
 `
 
 type ListKelasRow struct {
-	ID          int32            `json:"id"`
-	Nama        string           `json:"nama"`
-	Deskripsi   string           `json:"deskripsi"`
-	Tingkat     int16            `json:"tingkat"`
-	TahunAjaran string           `json:"tahun_ajaran"`
-	KodeKelas   string           `json:"kode_kelas"`
-	Dibuat      pgtype.Timestamp `json:"dibuat"`
-	Pengampu    pgtype.Int4      `json:"pengampu"`
-	Guru        bool             `json:"guru"`
+	ID           int32            `json:"id"`
+	Nama         string           `json:"nama"`
+	Deskripsi    string           `json:"deskripsi"`
+	Tingkat      int16            `json:"tingkat"`
+	TahunAjaran  string           `json:"tahun_ajaran"`
+	KodeKelas    string           `json:"kode_kelas"`
+	Dibuat       pgtype.Timestamp `json:"dibuat"`
+	Pengampu     pgtype.Int4      `json:"pengampu"`
+	Guru         bool             `json:"guru"`
+	Mapel        string           `json:"mapel"`
+	NamaPengampu string           `json:"nama_pengampu"`
 }
 
 func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasRow, error) {
@@ -368,6 +378,8 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasR
 			&i.Dibuat,
 			&i.Pengampu,
 			&i.Guru,
+			&i.Mapel,
+			&i.NamaPengampu,
 		); err != nil {
 			return nil, err
 		}
@@ -380,7 +392,7 @@ func (q *Queries) ListKelas(ctx context.Context, penggunaID int32) ([]ListKelasR
 }
 
 const listKelasDiampu = `-- name: ListKelasDiampu :many
-SELECT k.id, k.nama, k.tingkat, k.deskripsi, k.tahun_ajaran, k.kode_kelas, k.dibuat, k.pengampu FROM kelas k
+SELECT k.id, k.nama, k.tingkat, k.deskripsi, k.tahun_ajaran, k.kode_kelas, k.dibuat, k.pengampu, k.mapel FROM kelas k
 JOIN pengguna p ON p.id = k.pengampu AND p.aktif = TRUE
 WHERE k.pengampu = $1
 `
@@ -403,6 +415,7 @@ func (q *Queries) ListKelasDiampu(ctx context.Context, pengampu pgtype.Int4) ([]
 			&i.KodeKelas,
 			&i.Dibuat,
 			&i.Pengampu,
+			&i.Mapel,
 		); err != nil {
 			return nil, err
 		}
@@ -418,19 +431,21 @@ const updateKelas = `-- name: UpdateKelas :one
 UPDATE kelas
 SET
     nama = COALESCE($2, nama),
-    deskripsi = COALESCE($3, deskripsi)
+    deskripsi = COALESCE($3, deskripsi),
+    mapel = COALESCE($4, mapel)
 WHERE kode_kelas = $1
-RETURNING id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu
+RETURNING id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel
 `
 
 type UpdateKelasParams struct {
 	KodeKelas string      `json:"kode_kelas"`
 	Nama      pgtype.Text `json:"nama"`
 	Deskripsi pgtype.Text `json:"deskripsi"`
+	Mapel     pgtype.Text `json:"mapel"`
 }
 
 func (q *Queries) UpdateKelas(ctx context.Context, arg UpdateKelasParams) (Kela, error) {
-	row := q.db.QueryRow(ctx, updateKelas, arg.KodeKelas, arg.Nama, arg.Deskripsi)
+	row := q.db.QueryRow(ctx, updateKelas, arg.KodeKelas, arg.Nama, arg.Deskripsi, arg.Mapel)
 	var i Kela
 	err := row.Scan(
 		&i.ID,
@@ -441,6 +456,7 @@ func (q *Queries) UpdateKelas(ctx context.Context, arg UpdateKelasParams) (Kela,
 		&i.KodeKelas,
 		&i.Dibuat,
 		&i.Pengampu,
+		&i.Mapel,
 	)
 	return i, err
 }
@@ -449,7 +465,7 @@ const updatePengampuKelas = `-- name: UpdatePengampuKelas :one
 UPDATE kelas
 SET pengampu = $2
 WHERE kode_kelas = $1
-RETURNING id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu
+RETURNING id, nama, tingkat, deskripsi, tahun_ajaran, kode_kelas, dibuat, pengampu, mapel
 `
 
 type UpdatePengampuKelasParams struct {
@@ -469,6 +485,7 @@ func (q *Queries) UpdatePengampuKelas(ctx context.Context, arg UpdatePengampuKel
 		&i.KodeKelas,
 		&i.Dibuat,
 		&i.Pengampu,
+		&i.Mapel,
 	)
 	return i, err
 }

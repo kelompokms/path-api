@@ -75,6 +75,7 @@ type AdminCreatePenggunaRequest struct {
 type AdminKelasResponse struct {
 	ID           int32     `json:"id" example:"1"`
 	Nama         string    `json:"nama" example:"X PPLG 1"`
+	Mapel        string    `json:"mapel" example:"Pemrograman Web"`
 	Deskripsi    string    `json:"deskripsi" example:"Pemrograman Dasar"`
 	Tingkat      int16     `json:"tingkat" example:"10"`
 	TahunAjaran  string    `json:"tahun_ajaran" example:"2026/2027"`
@@ -87,9 +88,11 @@ type AdminKelasResponse struct {
 
 type AdminCreateKelasRequest struct {
 	Nama        string `json:"nama" validate:"required"`
+	Mapel       string `json:"mapel"`
 	Deskripsi   string `json:"deskripsi"`
 	Tingkat     int16  `json:"tingkat" validate:"required,gt=0"`
 	TahunAjaran string `json:"tahun_ajaran" validate:"required"`
+	PengampuID  *int32 `json:"pengampu_id"`
 }
 
 type UploadKelasCSVRequest struct {
@@ -108,6 +111,14 @@ type CreateKalenderAgendaRequest struct {
 	TanggalSelesai string `json:"tanggal_selesai"`
 }
 
+type UpdateKalenderAgendaRequest struct {
+	AgendaID       int32  `json:"-" param:"agendaID" validate:"required,gt=0"`
+	NamaKegiatan   string `json:"nama_kegiatan" validate:"required"`
+	Keterangan     string `json:"keterangan"`
+	TanggalMulai   string `json:"tanggal_mulai" validate:"required"`
+	TanggalSelesai string `json:"tanggal_selesai"`
+}
+
 type KalenderAgendaResponse struct {
 	ID             int32     `json:"id" example:"1"`
 	NamaKegiatan   string    `json:"nama_kegiatan" example:"Rapat Orang Tua"`
@@ -115,5 +126,33 @@ type KalenderAgendaResponse struct {
 	TanggalMulai   string    `json:"tanggal_mulai" example:"2026-11-20"`
 	TanggalSelesai string    `json:"tanggal_selesai" example:"2026-11-21"`
 	Dibuat         time.Time `json:"dibuat"`
+}
+
+type BantuanKontenResponse struct {
+	Kunci      string    `json:"kunci" example:"panduan_ai"`
+	Judul      string    `json:"judul" example:"Panduan AI"`
+	Isi        string    `json:"isi"`
+	Editable   bool      `json:"editable"`
+	Diperbarui time.Time `json:"diperbarui"`
+}
+
+type UpdateBantuanRequest struct {
+	Kunci string `json:"-" param:"kunci" validate:"required"`
+	Isi   string `json:"isi" validate:"required"`
+}
+
+type AiUsageUserResponse struct {
+	PenggunaID int32  `json:"pengguna_id"`
+	Role       string `json:"role"`
+	TotalPakai int32  `json:"total_pakai"`
+}
+
+type AiUsageSummaryResponse struct {
+	Bulan      int                   `json:"bulan"`
+	Tahun      int                   `json:"tahun"`
+	TotalGuru  int32                 `json:"total_guru"`
+	TotalSiswa int32                 `json:"total_siswa"`
+	TotalSemua int32                 `json:"total_semua"`
+	Users      []AiUsageUserResponse `json:"users"`
 }
 

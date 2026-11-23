@@ -13,6 +13,8 @@ services:
             - OAUTH_FRONTEND_REDIRECT_URL=${OAUTH_FRONTEND_REDIRECT_URL:-}
             - OAUTH_MOBILE_REDIRECT_URL=${OAUTH_MOBILE_REDIRECT_URL:-}
             - OAUTH_ALLOWED_REDIRECT_URLS=${OAUTH_ALLOWED_REDIRECT_URLS:-}
+            - AI_API_URL=${AI_API_URL:-https://ai.pathclass.app}
+            - AI_API_KEY=${AI_API_KEY:-}
         ports:
             - ${HOST_PORT}:3000
         entrypoint: /app/path-api

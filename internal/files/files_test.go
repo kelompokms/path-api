@@ -87,18 +87,30 @@ func TestSaveProfilePicture(t *testing.T) {
 		assert.NoError(t, statErr)
 	})
 
-	t.Run("rejects non-square image", func(t *testing.T) {
+	t.Run("accepts non-square image with free aspect ratio", func(t *testing.T) {
 		fh := makeFileHeader(t, "profile_picture", "rect.png", makePNGBytes(t, 10, 20))
+		savedPath, err := SaveProfilePicture(1, fh)
+		require.NoError(t, err)
+		assert.Contains(t, savedPath, "/pfp/")
+		assert.True(t, strings.HasSuffix(savedPath, ".png"))
+	})
+
+	t.Run("rejects file larger than 2MB", func(t *testing.T) {
+		fh := makeFileHeader(t, "profile_picture", "big.png", bytes.Repeat([]byte{0x89}, MaxProfilePictureSize+1))
 		_, err := SaveProfilePicture(1, fh)
 		require.Error(t, err)
-		assert.Equal(t, "Gambar harus rasio 1:1", err.Error())
+		var valErr *ProfilePictureValidationError
+		require.ErrorAs(t, err, &valErr)
+		assert.Contains(t, valErr.Message, "2 MB")
 	})
 
 	t.Run("rejects unsupported extension", func(t *testing.T) {
 		fh := makeFileHeader(t, "profile_picture", "doc.txt", []byte("plain text"))
 		_, err := SaveProfilePicture(1, fh)
 		require.Error(t, err)
-		assert.Equal(t, "Extension tidak didukung", err.Error())
+		var valErr *ProfilePictureValidationError
+		require.ErrorAs(t, err, &valErr)
+		assert.Contains(t, valErr.Message, "Format gambar tidak didukung")
 	})
 }
 

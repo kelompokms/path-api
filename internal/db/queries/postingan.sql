@@ -1,5 +1,5 @@
 -- name: ListPostingan :many
-SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe_id, p.pengguna_id, p.kelas_id, p.dibuat
+SELECT p.id, p.judul, p.deskripsi, p.lampiran, p.tipe_id, p.pengguna_id, p.kelas_id, p.dibuat, p.menerima_kiriman, p.tenggat_waktu
 FROM postingan p
 JOIN pengguna u ON u.id = p.pengguna_id
 WHERE p.kelas_id = $1
@@ -8,22 +8,37 @@ WHERE p.kelas_id = $1
 ORDER BY p.dibuat DESC, p.id DESC;
 
 -- name: CreatePostingan :one
-INSERT INTO postingan (judul, deskripsi, lampiran, tipe_id, pengguna_id, kelas_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING *;
+INSERT INTO postingan (judul, deskripsi, lampiran, tipe_id, pengguna_id, kelas_id, tenggat_waktu)
+VALUES ($1, $2, $3, $4, $5, $6, sqlc.narg(tenggat_waktu))
+RETURNING id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat, menerima_kiriman, tenggat_waktu;
 
 -- name: UpdatePostingan :one
 UPDATE postingan
-SET judul = $3, deskripsi = $4, lampiran = COALESCE($5, lampiran), tipe_id = $6
+SET
+    judul = $3,
+    deskripsi = $4,
+    lampiran = COALESCE($5, lampiran),
+    tipe_id = $6,
+    menerima_kiriman = COALESCE(sqlc.narg(menerima_kiriman), menerima_kiriman),
+    tenggat_waktu = CASE
+        WHEN $8::boolean THEN NULL
+        ELSE COALESCE(sqlc.narg(tenggat_waktu), tenggat_waktu)
+    END
 WHERE id = $1 AND kelas_id = $2
-RETURNING *;
+RETURNING id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat, menerima_kiriman, tenggat_waktu;
 
 -- name: GetPostinganByID :one
-SELECT id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat
+SELECT id, judul, deskripsi, lampiran, pengguna_id, kelas_id, tipe_id, dibuat, menerima_kiriman, tenggat_waktu
 FROM postingan
 WHERE postingan.id = $1
   AND postingan.kelas_id = $2
   AND EXISTS (SELECT 1 FROM pengguna u WHERE u.id = postingan.pengguna_id AND u.aktif = TRUE);
+
+-- name: DeletePengumpulanByPostinganID :exec
+DELETE FROM pengumpulan_tugas WHERE postingan_id = $1;
+
+-- name: DeletePostingan :execrows
+DELETE FROM postingan WHERE id = $1 AND kelas_id = $2;
 
 -- name: GetPengumpulanTugas :one
 SELECT id, postingan_id, pengguna_id, lampiran, nilai, dibuat

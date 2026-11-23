@@ -385,6 +385,7 @@ func (h *Handler) ListKelas(c *echo.Context) error {
 		items = append(items, AdminKelasResponse{
 			ID:           r.ID,
 			Nama:         r.Nama,
+			Mapel:        r.Mapel,
 			Deskripsi:    r.Deskripsi,
 			Tingkat:      r.Tingkat,
 			TahunAjaran:  r.TahunAjaran,
@@ -481,25 +482,53 @@ func (h *Handler) CreateKelas(c *echo.Context) error {
 	}
 
 	nama := strings.TrimSpace(req.Nama)
+	mapel := strings.TrimSpace(req.Mapel)
 	tahunAjaran := strings.TrimSpace(req.TahunAjaran)
 	if nama == "" || tahunAjaran == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Nama dan tahun ajaran wajib diisi")
 	}
 
-	err := h.db.CreateKelas(c.Request().Context(), db.CreateKelasParams{
+	ctx := c.Request().Context()
+	var pengampuParam pgtype.Int4
+	if req.PengampuID != nil {
+		if *req.PengampuID <= 0 {
+			return echo.NewHTTPError(http.StatusBadRequest, "ID pengampu tidak valid")
+		}
+		targetUser, err := h.db.GetPenggunaRoleByID(ctx, *req.PengampuID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return echo.NewHTTPError(http.StatusNotFound, "Guru tidak ditemukan")
+			}
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role pengguna")
+		}
+		if targetUser.Role != "guru" {
+			return echo.NewHTTPError(http.StatusBadRequest, "Pengampu kelas harus memiliki role guru")
+		}
+		pengampuParam = pgtype.Int4{Int32: *req.PengampuID, Valid: true}
+	}
+
+	kodeKelas := utils.GenerateHashCode()
+	err := h.db.CreateKelas(ctx, db.CreateKelasParams{
 		Nama:        nama,
 		Deskripsi:   strings.TrimSpace(req.Deskripsi),
 		Tingkat:     req.Tingkat,
 		TahunAjaran: tahunAjaran,
-		Pengampu:    pgtype.Int4{Valid: false},
-		KodeKelas:   utils.GenerateHashCode(),
+		Pengampu:    pengampuParam,
+		KodeKelas:   kodeKelas,
+		Mapel:       mapel,
 	})
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat kelas")
 	}
 
-	return c.JSON(http.StatusCreated, utils.HTTPResponse{Message: "Kelas berhasil dibuat"})
+	return c.JSON(http.StatusCreated, map[string]any{
+		"message":    "Kelas berhasil dibuat",
+		"kode_kelas": kodeKelas,
+		"nama":       nama,
+		"mapel":      mapel,
+	})
 }
 
 func parseKelasCsvTingkat(raw string) (int16, bool) {
@@ -521,6 +550,7 @@ func parseKelasCsvTingkat(raw string) (int16, bool) {
 }
 
 type kelasCsvColumns struct {
+	mapel       int
 	nama        int
 	tingkat     int
 	tahunAjaran int
@@ -530,6 +560,7 @@ type kelasCsvColumns struct {
 
 func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 	cols := kelasCsvColumns{
+		mapel:       -1,
 		nama:        0,
 		tingkat:     1,
 		tahunAjaran: 2,
@@ -539,18 +570,26 @@ func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 		return cols
 	}
 
-	namaIdx, tingkatIdx, tahunIdx, deskIdx := -1, -1, -1, -1
+	mapelIdx, namaIdx, kelasColIdx, tingkatIdx, tahunIdx, deskIdx := -1, -1, -1, -1, -1, -1
 	for i, raw := range firstRow {
 		header := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(raw, "\uFEFF")))
 		header = strings.ReplaceAll(header, "_", " ")
 		switch header {
-		case "nama", "nama kelas", "mata pelajaran", "mapel":
+		case "mapel", "mata pelajaran":
+			if mapelIdx == -1 {
+				mapelIdx = i
+			}
+		case "nama", "nama kelas", "detail kelas", "rombel":
 			if namaIdx == -1 {
 				namaIdx = i
 			}
-		case "tingkat", "kelas":
+		case "tingkat":
 			if tingkatIdx == -1 {
 				tingkatIdx = i
+			}
+		case "kelas":
+			if kelasColIdx == -1 {
+				kelasColIdx = i
 			}
 		case "tahun ajaran":
 			if tahunIdx == -1 {
@@ -563,8 +602,18 @@ func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 		}
 	}
 
+	if tingkatIdx == -1 && kelasColIdx != -1 {
+		tingkatIdx = kelasColIdx
+	} else if namaIdx == -1 && kelasColIdx != -1 {
+		namaIdx = kelasColIdx
+	}
+	if namaIdx == -1 && mapelIdx != -1 {
+		namaIdx = mapelIdx
+	}
+
 	if namaIdx != -1 && tingkatIdx != -1 && tahunIdx != -1 {
 		return kelasCsvColumns{
+			mapel:       mapelIdx,
 			nama:        namaIdx,
 			tingkat:     tingkatIdx,
 			tahunAjaran: tahunIdx,
@@ -573,7 +622,7 @@ func detectKelasCsvColumns(firstRow []string) kelasCsvColumns {
 		}
 	}
 	first := strings.TrimSpace(strings.TrimPrefix(firstRow[0], "\uFEFF"))
-	if strings.EqualFold(first, "nama") || strings.EqualFold(first, "nama_kelas") {
+	if strings.EqualFold(first, "nama") || strings.EqualFold(first, "nama_kelas") || strings.EqualFold(first, "mapel") {
 		cols.hasHeader = true
 	}
 	return cols
@@ -665,6 +714,11 @@ func (h *Handler) UploadKelasCSV(c *echo.Context) error {
 			continue
 		}
 
+		mapel := ""
+		if cols.mapel >= 0 && cols.mapel < len(row) {
+			mapel = strings.TrimSpace(strings.TrimPrefix(row[cols.mapel], "\uFEFF"))
+		}
+
 		deskripsi := ""
 		if cols.deskripsi >= 0 && cols.deskripsi < len(row) {
 			deskripsi = strings.TrimSpace(row[cols.deskripsi])
@@ -678,6 +732,7 @@ func (h *Handler) UploadKelasCSV(c *echo.Context) error {
 			TahunAjaran: tahunAjaran,
 			Pengampu:    pgtype.Int4{Valid: false},
 			KodeKelas:   utils.GenerateHashCode(),
+			Mapel:       mapel,
 		})
 		if err != nil {
 			log.Println(err)
@@ -855,7 +910,15 @@ func (h *Handler) UploadKalenderAkademik(c *echo.Context) error {
 	}
 	defer src.Close()
 
-	reader := csv.NewReader(src)
+	rawBytes, err := io.ReadAll(io.LimitReader(src, 5<<20))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membaca file CSV")
+	}
+	rawBytes = bytes.TrimPrefix(rawBytes, []byte("\xEF\xBB\xBF"))
+
+	reader := csv.NewReader(bytes.NewReader(rawBytes))
+	reader.Comma = detectCsvComma(rawBytes)
+	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Gagal membaca format CSV")
@@ -872,16 +935,24 @@ func (h *Handler) UploadKalenderAkademik(c *echo.Context) error {
 		if i == 0 {
 			continue
 		}
-		if len(row) < 3 {
+		if len(row) < 2 {
 			continue
 		}
 
-		namaKegiatan := row[0]
+		namaKegiatan := strings.TrimSpace(strings.TrimPrefix(row[0], "\uFEFF"))
+		mulaiStr := strings.TrimSpace(row[1])
+		selesaiStr := mulaiStr
+		if len(row) >= 3 && strings.TrimSpace(row[2]) != "" {
+			selesaiStr = strings.TrimSpace(row[2])
+		}
+		if namaKegiatan == "" {
+			continue
+		}
 
-		tglMulai, err1 := time.Parse("2006-01-02", row[1])
-		tglSelesai, err2 := time.Parse("2006-01-02", row[2])
+		tglMulai, err1 := time.Parse("2006-01-02", mulaiStr)
+		tglSelesai, err2 := time.Parse("2006-01-02", selesaiStr)
 
-		if err1 != nil || err2 != nil {
+		if err1 != nil || err2 != nil || tglSelesai.Before(tglMulai) {
 			continue
 		}
 
@@ -904,6 +975,237 @@ func (h *Handler) UploadKalenderAkademik(c *echo.Context) error {
 
 	return c.JSON(http.StatusCreated, utils.HTTPResponse{
 		Message: fmt.Sprintf("Berhasil mengunggah %d kegiatan kalender akademik", berhasil),
+	})
+}
+
+// DownloadKelasCSVTemplate returns a downloadable CSV template matching the kelas DB schema.
+func (h *Handler) DownloadKelasCSVTemplate(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+	const tpl = "mapel,nama,tingkat,tahun_ajaran,deskripsi\n" +
+		"Pemrograman Web,X PPLG 1,10,2026/2027,Dasar HTML CSS dan JavaScript\n" +
+		"Basis Data,XI RPL 1,11,2026/2027,Desain ERD dan SQL\n"
+	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="template_kelas.csv"`)
+	return c.Blob(http.StatusOK, "text/csv; charset=utf-8", []byte(tpl))
+}
+
+// DownloadKalenderCSVTemplate returns a downloadable CSV template matching kalender_akademik DB schema.
+func (h *Handler) DownloadKalenderCSVTemplate(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+	const tpl = "nama_kegiatan,tanggal_mulai,tanggal_selesai,keterangan\n" +
+		"UTS Semester Ganjil,2026-10-01,2026-10-07,Ujian Tengah Semester\n" +
+		"Libur Nasional,2026-12-25,2026-12-25,Hari Raya Natal\n"
+	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="template_kalender.csv"`)
+	return c.Blob(http.StatusOK, "text/csv; charset=utf-8", []byte(tpl))
+}
+
+// UpdateAgendaKalender updates an existing global academic calendar event (admin only).
+func (h *Handler) UpdateAgendaKalender(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+
+	req := new(UpdateKalenderAgendaRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	namaKegiatan := strings.TrimSpace(req.NamaKegiatan)
+	if namaKegiatan == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Nama event wajib diisi")
+	}
+
+	tglMulai, err := time.Parse("2006-01-02", strings.TrimSpace(req.TanggalMulai))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Format tanggal_mulai harus YYYY-MM-DD")
+	}
+
+	tglSelesai := tglMulai
+	if strings.TrimSpace(req.TanggalSelesai) != "" {
+		parsedEnd, err := time.Parse("2006-01-02", strings.TrimSpace(req.TanggalSelesai))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Format tanggal_selesai harus YYYY-MM-DD")
+		}
+		if parsedEnd.Before(tglMulai) {
+			return echo.NewHTTPError(http.StatusBadRequest, "tanggal_selesai tidak boleh sebelum tanggal_mulai")
+		}
+		tglSelesai = parsedEnd
+	}
+
+	updated, err := h.db.UpdateKegiatanKalender(c.Request().Context(), db.UpdateKegiatanKalenderParams{
+		ID:             req.AgendaID,
+		NamaKegiatan:   namaKegiatan,
+		Keterangan:     strings.TrimSpace(req.Keterangan),
+		TanggalMulai:   pgtype.Date{Time: tglMulai, Valid: true},
+		TanggalSelesai: pgtype.Date{Time: tglSelesai, Valid: true},
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Agenda kalender tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui agenda kalender")
+	}
+
+	return c.JSON(http.StatusOK, toKalenderAgendaResponse(updated))
+}
+
+// DeleteAgendaKalender deletes an existing global academic calendar event (admin only).
+func (h *Handler) DeleteAgendaKalender(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+
+	parsedID, err := strconv.ParseInt(strings.TrimSpace(c.Param("agendaID")), 10, 32)
+	if err != nil || parsedID <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "ID agenda tidak valid")
+	}
+
+	affected, err := h.db.DeleteKegiatanKalenderByID(c.Request().Context(), int32(parsedID))
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menghapus agenda kalender")
+	}
+	if affected == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "Agenda kalender tidak ditemukan")
+	}
+
+	return c.JSON(http.StatusOK, utils.HTTPResponse{
+		Message: "Agenda kalender berhasil dihapus",
+	})
+}
+
+// ListBantuan returns all help content sections for authenticated users.
+func (h *Handler) ListBantuan(c *echo.Context) error {
+	if _, err := utils.GetClaims(c); err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses informasi user")
+	}
+
+	rows, err := h.db.ListBantuanKonten(c.Request().Context())
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil konten bantuan")
+	}
+
+	items := make([]BantuanKontenResponse, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, BantuanKontenResponse{
+			Kunci:      r.Kunci,
+			Judul:      r.Judul,
+			Isi:        r.Isi,
+			Editable:   r.Kunci == "panduan_ai" || r.Kunci == "kontak_kami",
+			Diperbarui: utils.ToGMT7(r.Diperbarui.Time),
+		})
+	}
+	return c.JSON(http.StatusOK, items)
+}
+
+// UpdateBantuan lets admins update editable help sections (panduan_ai, kontak_kami).
+func (h *Handler) UpdateBantuan(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+
+	req := new(UpdateBantuanRequest)
+	if err := c.Bind(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	req.Kunci = strings.ToLower(strings.TrimSpace(req.Kunci))
+	req.Isi = strings.TrimSpace(req.Isi)
+	if err := c.Validate(req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	if req.Kunci != "panduan_ai" && req.Kunci != "kontak_kami" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Bagian bantuan ini tidak dapat diedit")
+	}
+
+	updated, err := h.db.UpdateBantuanKonten(c.Request().Context(), db.UpdateBantuanKontenParams{
+		Kunci: req.Kunci,
+		Isi:   req.Isi,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Konten bantuan tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memperbarui konten bantuan")
+	}
+
+	return c.JSON(http.StatusOK, BantuanKontenResponse{
+		Kunci:      updated.Kunci,
+		Judul:      updated.Judul,
+		Isi:        updated.Isi,
+		Editable:   true,
+		Diperbarui: utils.ToGMT7(updated.Diperbarui.Time),
+	})
+}
+
+// ListAiUsage returns real monthly AI usage stats per user from ai_usage_log (admin only).
+func (h *Handler) ListAiUsage(c *echo.Context) error {
+	if _, err := requireAdminClaims(c); err != nil {
+		return err
+	}
+
+	now := utils.NowGMT7()
+	bulan := int(now.Month())
+	tahun := now.Year()
+
+	if raw := strings.TrimSpace(c.QueryParam("bulan")); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil || v < 1 || v > 12 {
+			return echo.NewHTTPError(http.StatusBadRequest, "Parameter bulan harus antara 1 sampai 12")
+		}
+		bulan = v
+	}
+	if raw := strings.TrimSpace(c.QueryParam("tahun")); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil || v < 2000 || v > 2100 {
+			return echo.NewHTTPError(http.StatusBadRequest, "Parameter tahun tidak valid")
+		}
+		tahun = v
+	}
+
+	start := time.Date(tahun, time.Month(bulan), 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 1, 0)
+
+	rows, err := h.db.ListAiUsageByPeriod(c.Request().Context(), db.ListAiUsageByPeriodParams{
+		Start: pgtype.Timestamp{Time: start, Valid: true},
+		End:   pgtype.Timestamp{Time: end, Valid: true},
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil ringkasan penggunaan AI")
+	}
+
+	var totalGuru, totalSiswa int32
+	users := make([]AiUsageUserResponse, 0, len(rows))
+	for _, r := range rows {
+		if r.Role == "guru" {
+			totalGuru += r.Jumlah
+		} else {
+			totalSiswa += r.Jumlah
+		}
+		users = append(users, AiUsageUserResponse{
+			PenggunaID: r.PenggunaID,
+			Role:       r.Role,
+			TotalPakai: r.Jumlah,
+		})
+	}
+
+	return c.JSON(http.StatusOK, AiUsageSummaryResponse{
+		Bulan:      bulan,
+		Tahun:      tahun,
+		TotalGuru:  totalGuru,
+		TotalSiswa: totalSiswa,
+		TotalSemua: totalGuru + totalSiswa,
+		Users:      users,
 	})
 }
 
