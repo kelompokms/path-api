@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"path-api/internal/db"
 	"path-api/internal/utils"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -57,15 +60,17 @@ func (h *Handler) List(c *echo.Context) error {
 			continue
 		}
 		kelas = append(kelas, DetailKelasResponse{
-			ID:          row.ID,
-			Nama:        row.Nama,
-			Deskripsi:   row.Deskripsi,
-			Tingkat:     row.Tingkat,
-			TahunAjaran: row.TahunAjaran,
-			KodeKelas:   row.KodeKelas,
-			Dibuat:      utils.ToGMT7(row.Dibuat.Time),
-			Pengampu:    row.Pengampu,
-			Guru:        row.Guru,
+			ID:           row.ID,
+			Nama:         row.Nama,
+			Mapel:        row.Mapel,
+			Deskripsi:    row.Deskripsi,
+			Tingkat:      row.Tingkat,
+			TahunAjaran:  row.TahunAjaran,
+			KodeKelas:    row.KodeKelas,
+			Dibuat:       utils.ToGMT7(row.Dibuat.Time),
+			Pengampu:     row.Pengampu,
+			NamaPengampu: row.NamaPengampu,
+			Guru:         row.Guru,
 		})
 	}
 
@@ -115,6 +120,7 @@ func (h *Handler) Get(c *echo.Context) error {
 	return c.JSON(http.StatusOK, DetailKelasResponse{
 		ID:          kelas.ID,
 		Nama:        kelas.Nama,
+		Mapel:       kelas.Mapel,
 		Deskripsi:   kelas.Deskripsi,
 		Tingkat:     kelas.Tingkat,
 		TahunAjaran: kelas.TahunAjaran,
@@ -180,8 +186,8 @@ func (h *Handler) Update(c *echo.Context) error {
 		return err
 	}
 
-	if req.Nama == nil && req.Deskripsi == nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "Minimal nama atau deskripsi harus diisi")
+	if req.Nama == nil && req.Deskripsi == nil && req.Mapel == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Minimal nama, mapel, atau deskripsi harus diisi")
 	}
 
 	var namaParam pgtype.Text
@@ -198,10 +204,16 @@ func (h *Handler) Update(c *echo.Context) error {
 		deskripsiParam = pgtype.Text{String: strings.TrimSpace(*req.Deskripsi), Valid: true}
 	}
 
+	var mapelParam pgtype.Text
+	if req.Mapel != nil {
+		mapelParam = pgtype.Text{String: strings.TrimSpace(*req.Mapel), Valid: true}
+	}
+
 	updated, err := h.db.UpdateKelas(c.Request().Context(), db.UpdateKelasParams{
 		KodeKelas: req.KodeKelas,
 		Nama:      namaParam,
 		Deskripsi: deskripsiParam,
+		Mapel:     mapelParam,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -214,6 +226,7 @@ func (h *Handler) Update(c *echo.Context) error {
 	return c.JSON(http.StatusOK, DetailKelasResponse{
 		ID:          updated.ID,
 		Nama:        updated.Nama,
+		Mapel:       updated.Mapel,
 		Deskripsi:   updated.Deskripsi,
 		Tingkat:     updated.Tingkat,
 		TahunAjaran: updated.TahunAjaran,
@@ -238,8 +251,13 @@ func (h *Handler) Update(c *echo.Context) error {
 //	@Router			/kelas/{kode_kelas}/anggota/{pengguna_id}/guru [patch]
 func (h *Handler) PromoteGuru(c *echo.Context) error {
 	var req PromoteGuruRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	req.KodeKelas = c.Param("kode_kelas")
+	if rawID := strings.TrimSpace(c.Param("pengguna_id")); rawID != "" {
+		parsedID, err := strconv.ParseInt(rawID, 10, 32)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "pengguna_id tidak valid")
+		}
+		req.PenggunaID = int32(parsedID)
 	}
 	if err := c.Validate(&req); err != nil {
 		return utils.ValidationErrorHandler(c, err)
@@ -287,6 +305,114 @@ func (h *Handler) PromoteGuru(c *echo.Context) error {
 	return c.JSON(http.StatusOK, utils.HTTPResponse{Message: "Berhasil mengangkat murid menjadi guru"})
 }
 
+func resolveGuruUtamaID(pengampu pgtype.Int4, rows []db.ListAnggotaKelasRow) int32 {
+	if pengampu.Valid && pengampu.Int32 > 0 {
+		for _, row := range rows {
+			if row.Guru && row.PenggunaID == pengampu.Int32 {
+				return row.PenggunaID
+			}
+		}
+	}
+	var firstID int32
+	var firstTime time.Time
+	for _, row := range rows {
+		if !row.Guru {
+			continue
+		}
+		if firstID == 0 ||
+			row.Dibuat.Time.Before(firstTime) ||
+			(row.Dibuat.Time.Equal(firstTime) && row.PenggunaID < firstID) {
+			firstID = row.PenggunaID
+			firstTime = row.Dibuat.Time
+		}
+	}
+	return firstID
+}
+
+// DemoteGuru godoc
+//
+//	@Summary		Turunkan Guru Menjadi Murid
+//	@Description	Mengubah role guru pendamping menjadi murid pada kelas tertentu (khusus guru utama atau admin)
+//	@Tags			Kelas
+//	@Accept			json
+//	@Produce		json
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Param			pengguna_id			path		int		true	"ID Pengguna Guru"
+//	@Success		200					{object}	utils.HTTPResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/anggota/{pengguna_id}/murid [patch]
+func (h *Handler) DemoteGuru(c *echo.Context) error {
+	var req PromoteGuruRequest
+	req.KodeKelas = c.Param("kode_kelas")
+	if rawID := strings.TrimSpace(c.Param("pengguna_id")); rawID != "" {
+		parsedID, err := strconv.ParseInt(rawID, 10, 32)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "pengguna_id tidak valid")
+		}
+		req.PenggunaID = int32(parsedID)
+	}
+	if err := c.Validate(&req); err != nil {
+		return utils.ValidationErrorHandler(c, err)
+	}
+
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	ctx := c.Request().Context()
+	kelasRow, err := h.db.GetKelas(ctx, req.KodeKelas)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
+	}
+
+	rows, err := h.db.ListAnggotaKelas(ctx, req.KodeKelas)
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar anggota kelas")
+	}
+
+	utamaID := resolveGuruUtamaID(kelasRow.Pengampu, rows)
+	if !claims.IsAdmin() && (utamaID == 0 || claims.UserID != utamaID) {
+		return echo.NewHTTPError(http.StatusForbidden, "Hanya guru utama atau admin yang dapat menurunkan guru menjadi murid")
+	}
+
+	var target *db.ListAnggotaKelasRow
+	for i := range rows {
+		if rows[i].PenggunaID == req.PenggunaID {
+			target = &rows[i]
+			break
+		}
+	}
+	if target == nil {
+		return echo.NewHTTPError(http.StatusNotFound, "Anggota tidak ditemukan di kelas ini")
+	}
+	if !target.Guru {
+		return echo.NewHTTPError(http.StatusBadRequest, "Anggota tersebut bukan guru")
+	}
+	if req.PenggunaID == utamaID {
+		return echo.NewHTTPError(http.StatusBadRequest, "Guru utama tidak dapat diturunkan menjadi murid")
+	}
+	if req.PenggunaID == claims.UserID {
+		return echo.NewHTTPError(http.StatusBadRequest, "Tidak dapat menurunkan role diri sendiri")
+	}
+
+	if err := h.db.UpdateRoleKelas(ctx, db.UpdateRoleKelasParams{
+		PenggunaID: req.PenggunaID,
+		KodeKelas:  req.KodeKelas,
+		Guru:       false,
+	}); err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menurunkan guru menjadi murid")
+	}
+
+	return c.JSON(http.StatusOK, utils.HTTPResponse{Message: "Berhasil menurunkan guru menjadi murid"})
+}
+
 // ListAnggota godoc
 //
 //	@Summary		List Anggota Kelas
@@ -314,7 +440,8 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
-	_, err = h.db.GetKelasID(c.Request().Context(), req.KodeKelas)
+	ctx := c.Request().Context()
+	kelasRow, err := h.db.GetKelas(ctx, req.KodeKelas)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
@@ -324,7 +451,7 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 	}
 
 	if !claims.IsAdmin() {
-		isMember, err := h.db.IsAnggotaKelas(c.Request().Context(), db.IsAnggotaKelasParams{
+		isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
 			KodeKelas:  req.KodeKelas,
 			PenggunaID: claims.UserID,
 		})
@@ -337,12 +464,13 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 		}
 	}
 
-	rows, err := h.db.ListAnggotaKelas(c.Request().Context(), req.KodeKelas)
+	rows, err := h.db.ListAnggotaKelas(ctx, req.KodeKelas)
 	if err != nil {
 		log.Println(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil daftar anggota kelas")
 	}
 
+	utamaID := resolveGuruUtamaID(kelasRow.Pengampu, rows)
 	anggota := make([]AnggotaKelasResponse, 0, len(rows))
 	for _, row := range rows {
 		role := "murid"
@@ -355,10 +483,20 @@ func (h *Handler) ListAnggota(c *echo.Context) error {
 			Email:          row.Email,
 			ProfilePicture: row.ProfilePicture.String,
 			Guru:           row.Guru,
+			Utama:          row.Guru && row.PenggunaID == utamaID,
 			Role:           role,
 			Dibuat:         utils.ToGMT7(row.Dibuat.Time),
 		})
 	}
+	sort.SliceStable(anggota, func(i, j int) bool {
+		if anggota[i].Guru != anggota[j].Guru {
+			return anggota[i].Guru
+		}
+		if anggota[i].Utama != anggota[j].Utama {
+			return anggota[i].Utama
+		}
+		return strings.ToLower(anggota[i].Nama) < strings.ToLower(anggota[j].Nama)
+	})
 
 	return c.JSON(http.StatusOK, anggota)
 }
@@ -411,6 +549,7 @@ func (h *Handler) Create(c *echo.Context) error {
 		TahunAjaran: tahunAjaran,
 		Pengampu:    pgtype.Int4{Valid: false},
 		KodeKelas:   kodeKelas,
+		Mapel:       strings.TrimSpace(req.Mapel),
 	})
 
 	if err != nil {
@@ -433,10 +572,8 @@ func (h *Handler) Create(c *echo.Context) error {
 //	@Failure		400,401,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/gabung [post]
 func (h *Handler) Join(c *echo.Context) error {
-	var req KodeKelasRequest
-
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	req := KodeKelasRequest{
+		KodeKelas: c.Param("kode_kelas"),
 	}
 
 	if err := c.Validate(&req); err != nil {
@@ -488,9 +625,8 @@ func (h *Handler) Join(c *echo.Context) error {
 //	@Failure		400,401,500	{object}	utils.HTTPResponse
 //	@Router			/kelas/{kode_kelas}/keluar [post]
 func (h *Handler) Leave(c *echo.Context) error {
-	var req KodeKelasRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	req := KodeKelasRequest{
+		KodeKelas: c.Param("kode_kelas"),
 	}
 
 	if err := c.Validate(&req); err != nil {

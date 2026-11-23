@@ -6,6 +6,8 @@ import (
 )
 
 const (
+	// MaxProfilePictureSize is the maximum size of a profile picture (2 MB).
+	MaxProfilePictureSize = 2 << 20
 	// MaxPostinganFiles is the maximum number of attachments allowed per postingan.
 	MaxPostinganFiles = 5
 	// MaxPostinganFileSize is the maximum size of a single postingan attachment (10 MB).
@@ -27,6 +29,9 @@ func New(db *db.Queries) *Handler {
 var allowedTypes = map[string]string{
 	"image/jpeg": "jpg",
 	"image/png":  "png",
+	"image/webp": "webp",
+	"image/gif":  "gif",
+	"image/bmp":  "bmp",
 }
 
 // allowedPostinganTypes maps a detected MIME type to the extensions we are

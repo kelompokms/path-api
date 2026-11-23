@@ -52,6 +52,54 @@ func (q *Queries) DeleteSemuaKegiatanKalender(ctx context.Context) error {
 	return err
 }
 
+const deleteKegiatanKalenderByID = `-- name: DeleteKegiatanKalenderByID :execrows
+DELETE FROM kalender_akademik
+WHERE id = $1
+`
+
+func (q *Queries) DeleteKegiatanKalenderByID(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteKegiatanKalenderByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateKegiatanKalender = `-- name: UpdateKegiatanKalender :one
+UPDATE kalender_akademik
+SET nama_kegiatan = $2, keterangan = $3, tanggal_mulai = $4, tanggal_selesai = $5
+WHERE id = $1
+RETURNING id, nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai, dibuat
+`
+
+type UpdateKegiatanKalenderParams struct {
+	ID             int32       `json:"id"`
+	NamaKegiatan   string      `json:"nama_kegiatan"`
+	Keterangan     string      `json:"keterangan"`
+	TanggalMulai   pgtype.Date `json:"tanggal_mulai"`
+	TanggalSelesai pgtype.Date `json:"tanggal_selesai"`
+}
+
+func (q *Queries) UpdateKegiatanKalender(ctx context.Context, arg UpdateKegiatanKalenderParams) (KalenderAkademik, error) {
+	row := q.db.QueryRow(ctx, updateKegiatanKalender,
+		arg.ID,
+		arg.NamaKegiatan,
+		arg.Keterangan,
+		arg.TanggalMulai,
+		arg.TanggalSelesai,
+	)
+	var i KalenderAkademik
+	err := row.Scan(
+		&i.ID,
+		&i.NamaKegiatan,
+		&i.Keterangan,
+		&i.TanggalMulai,
+		&i.TanggalSelesai,
+		&i.Dibuat,
+	)
+	return i, err
+}
+
 const listKegiatanKalender = `-- name: ListKegiatanKalender :many
 SELECT id, nama_kegiatan, keterangan, tanggal_mulai, tanggal_selesai, dibuat FROM kalender_akademik
 ORDER BY tanggal_mulai ASC

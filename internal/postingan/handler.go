@@ -14,11 +14,12 @@ func New(db *db.Queries) *Handler {
 }
 
 type CreatePostinganRequest struct {
-	KodeKelas string   `param:"kode_kelas" json:"-" validate:"required"`
-	Judul     string   `json:"judul" validate:"required"`
-	Deskripsi string   `json:"deskripsi"`
-	Lampiran  []string `json:"lampiran"`
-	TipeID    int32    `json:"tipe" validate:"required,gte=1,lte=2"`
+	KodeKelas    string     `param:"kode_kelas" json:"-" validate:"required"`
+	Judul        string     `json:"judul" validate:"required"`
+	Deskripsi    string     `json:"deskripsi"`
+	Lampiran     []string   `json:"lampiran"`
+	TipeID       int32      `json:"tipe" validate:"required,gte=1,lte=2"`
+	TenggatWaktu *time.Time `json:"tenggat_waktu"`
 }
 
 type ListPostinganRequest struct {
@@ -27,23 +28,28 @@ type ListPostinganRequest struct {
 }
 
 type EditPostinganRequest struct {
-	KodeKelas   string    `param:"kode_kelas" json:"-" validate:"required"`
-	PostinganID int32     `param:"postinganID" json:"-" validate:"required"`
-	Judul       string    `json:"judul" validate:"required"`
-	Deskripsi   string    `json:"deskripsi"`
-	Lampiran    *[]string `json:"lampiran"`
-	TipeID      int32     `json:"tipe" validate:"required,gte=1,lte=2"`
+	KodeKelas       string     `param:"kode_kelas" json:"-" validate:"required"`
+	PostinganID     int32      `param:"postinganID" json:"-" validate:"required"`
+	Judul           string     `json:"judul" validate:"required"`
+	Deskripsi       string     `json:"deskripsi"`
+	Lampiran        *[]string  `json:"lampiran"`
+	TipeID          int32      `json:"tipe" validate:"required,gte=1,lte=2"`
+	MenerimaKiriman *bool      `json:"menerima_kiriman"`
+	TenggatWaktu    *time.Time `json:"tenggat_waktu"`
+	HapusTenggat    bool       `json:"hapus_tenggat"`
 }
 
 type PostinganResponse struct {
-	ID         int32     `json:"id" example:"1"`
-	Judul      string    `json:"judul" example:"Materi Bab 1"`
-	Deskripsi  string    `json:"deskripsi" example:"Pelajari materi berikut"`
-	Lampiran   []string  `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
-	PenggunaID int32     `json:"pengguna_id" example:"1"`
-	KelasID    int32     `json:"kelas_id" example:"1"`
-	TipeID     int32     `json:"tipe_id" example:"1"`
-	Dibuat     time.Time `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
+	ID              int32      `json:"id" example:"1"`
+	Judul           string     `json:"judul" example:"Materi Bab 1"`
+	Deskripsi       string     `json:"deskripsi" example:"Pelajari materi berikut"`
+	Lampiran        []string   `json:"lampiran" example:"[\"/uploads/2026/11/08/abc.pdf\"]"`
+	PenggunaID      int32      `json:"pengguna_id" example:"1"`
+	KelasID         int32      `json:"kelas_id" example:"1"`
+	TipeID          int32      `json:"tipe_id" example:"1"`
+	Dibuat          time.Time  `json:"dibuat" example:"2026-01-01T07:00:00+07:00"`
+	MenerimaKiriman bool       `json:"menerima_kiriman" example:"true"`
+	TenggatWaktu    *time.Time `json:"tenggat_waktu,omitempty" example:"2026-01-08T23:59:00+07:00"`
 }
 
 type TipePostinganResponse struct {

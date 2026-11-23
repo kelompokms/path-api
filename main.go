@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 	_ "path-api/docs"
 	"path-api/internal/admin"
+	"path-api/internal/ai"
 	"path-api/internal/auth"
 	"path-api/internal/db"
 	"path-api/internal/files"
@@ -46,6 +48,15 @@ func main() {
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS("*"))
+	// Avoid Echo v5 JSON EOF error when clients send Content-Type: application/json with an empty body.
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if c.Request().ContentLength == 0 && strings.HasPrefix(c.Request().Header.Get(echo.HeaderContentType), echo.MIMEApplicationJSON) {
+				c.Request().Header.Del(echo.HeaderContentType)
+			}
+			return next(c)
+		}
+	})
 
 	e.GET("/docs/*", echoSwagger.WrapHandler)
 
@@ -71,6 +82,9 @@ func main() {
 
 	adminHandler := admin.New(q)
 	adminHandler.Routes(protected)
+
+	aiHandler := ai.New(q)
+	aiHandler.Routes(protected)
 
 	e.Static("/uploads", files.UploadRoot)
 

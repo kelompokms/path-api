@@ -34,19 +34,28 @@ func toPostinganResponse(
 	lampiran []string,
 	penggunaID, kelasID, tipeID int32,
 	dibuat pgtype.Timestamp,
+	menerimaKiriman bool,
+	tenggatWaktu pgtype.Timestamp,
 ) PostinganResponse {
 	if lampiran == nil {
 		lampiran = []string{}
 	}
+	var tenggatPtr *time.Time
+	if tenggatWaktu.Valid {
+		t := utils.ToGMT7(tenggatWaktu.Time)
+		tenggatPtr = &t
+	}
 	return PostinganResponse{
-		ID:         id,
-		Judul:      judul,
-		Deskripsi:  deskripsi.String,
-		Lampiran:   lampiran,
-		PenggunaID: penggunaID,
-		KelasID:    kelasID,
-		TipeID:     tipeID,
-		Dibuat:     utils.ToGMT7(dibuat.Time),
+		ID:              id,
+		Judul:           judul,
+		Deskripsi:       deskripsi.String,
+		Lampiran:        lampiran,
+		PenggunaID:      penggunaID,
+		KelasID:         kelasID,
+		TipeID:          tipeID,
+		Dibuat:          utils.ToGMT7(dibuat.Time),
+		MenerimaKiriman: menerimaKiriman,
+		TenggatWaktu:    tenggatPtr,
 	}
 }
 
@@ -117,14 +126,20 @@ func (h *Handler) Create(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	var tenggatParam pgtype.Timestamp
+	if req.TenggatWaktu != nil {
+		tenggatParam = pgtype.Timestamp{Time: req.TenggatWaktu.UTC(), Valid: true}
+	}
+
 	// Simpan data ke database
 	post, err := h.db.CreatePostingan(c.Request().Context(), db.CreatePostinganParams{
-		Judul:      req.Judul,
-		Deskripsi:  deskripsiParam,
-		Lampiran:   lampiran,
-		TipeID:     req.TipeID,
-		PenggunaID: userID,
-		KelasID:    kelasID,
+		Judul:        req.Judul,
+		Deskripsi:    deskripsiParam,
+		Lampiran:     lampiran,
+		TipeID:       req.TipeID,
+		PenggunaID:   userID,
+		KelasID:      kelasID,
+		TenggatWaktu: tenggatParam,
 	})
 	if err != nil {
 		log.Println(err)
@@ -140,6 +155,8 @@ func (h *Handler) Create(c *echo.Context) error {
 		post.KelasID,
 		post.TipeID,
 		post.Dibuat,
+		post.MenerimaKiriman,
+		post.TenggatWaktu,
 	))
 }
 
@@ -217,6 +234,8 @@ func (h *Handler) List(c *echo.Context) error {
 			row.KelasID,
 			row.TipeID,
 			row.Dibuat,
+			row.MenerimaKiriman,
+			row.TenggatWaktu,
 		))
 	}
 
@@ -267,13 +286,26 @@ func (h *Handler) Edit(c *echo.Context) error {
 		}
 	}
 
+	var menerimaKirimanParam pgtype.Bool
+	if req.MenerimaKiriman != nil {
+		menerimaKirimanParam = pgtype.Bool{Bool: *req.MenerimaKiriman, Valid: true}
+	}
+
+	var tenggatParam pgtype.Timestamp
+	if req.TenggatWaktu != nil && !req.HapusTenggat {
+		tenggatParam = pgtype.Timestamp{Time: req.TenggatWaktu.UTC(), Valid: true}
+	}
+
 	updatedPost, err := h.db.UpdatePostingan(c.Request().Context(), db.UpdatePostinganParams{
-		ID:        req.PostinganID,
-		KelasID:   kelasID,
-		Judul:     req.Judul,
-		Deskripsi: deskripsiParam,
-		Lampiran:  lampiran,
-		TipeID:    req.TipeID,
+		ID:              req.PostinganID,
+		KelasID:         kelasID,
+		Judul:           req.Judul,
+		Deskripsi:       deskripsiParam,
+		Lampiran:        lampiran,
+		TipeID:          req.TipeID,
+		MenerimaKiriman: menerimaKirimanParam,
+		HapusTenggat:    req.HapusTenggat,
+		TenggatWaktu:    tenggatParam,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -291,7 +323,89 @@ func (h *Handler) Edit(c *echo.Context) error {
 		updatedPost.KelasID,
 		updatedPost.TipeID,
 		updatedPost.Dibuat,
+		updatedPost.MenerimaKiriman,
+		updatedPost.TenggatWaktu,
 	))
+}
+
+// Delete godoc
+//
+//	@Summary		Hapus Postingan
+//	@Description	Menghapus postingan materi atau tugas beserta pengumpulan terkait (khusus guru kelas atau admin)
+//	@Tags			Postingan
+//	@Produce		json
+//	@Param			kode_kelas			path		string	true	"Kode Kelas"
+//	@Param			postinganID			path		int		true	"Postingan ID"
+//	@Success		200					{object}	utils.HTTPResponse
+//	@Failure		400,401,403,404,500	{object}	utils.HTTPResponse
+//	@Router			/kelas/{kode_kelas}/postingan/{postinganID} [delete]
+func (h *Handler) Delete(c *echo.Context) error {
+	req, err := h.bindPengumpulanPath(c)
+	if err != nil {
+		return err
+	}
+	if req == nil {
+		return nil
+	}
+
+	claims, err := utils.GetClaims(c)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+	}
+
+	ctx := c.Request().Context()
+	kelasID, err := h.db.GetKelasID(ctx, req.KodeKelas)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
+	}
+
+	if !claims.IsAdmin() {
+		isGuru, err := h.db.IsGuruKelas(ctx, db.IsGuruKelasParams{
+			PenggunaID: claims.UserID,
+			KelasID:    kelasID,
+		})
+		if err != nil {
+			log.Println(err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
+		}
+		if !isGuru {
+			return echo.NewHTTPError(http.StatusForbidden, "Hanya guru yang dapat menghapus postingan")
+		}
+	}
+
+	if _, err := h.db.GetPostinganByID(ctx, db.GetPostinganByIDParams{
+		ID:      req.PostinganID,
+		KelasID: kelasID,
+	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "Postingan tidak ditemukan")
+		}
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa postingan")
+	}
+
+	if err := h.db.DeletePengumpulanByPostinganID(ctx, req.PostinganID); err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menghapus pengumpulan terkait postingan")
+	}
+
+	affected, err := h.db.DeletePostingan(ctx, db.DeletePostinganParams{
+		ID:      req.PostinganID,
+		KelasID: kelasID,
+	})
+	if err != nil {
+		log.Println(err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menghapus postingan")
+	}
+	if affected == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, "Postingan tidak ditemukan")
+	}
+
+	return c.JSON(http.StatusOK, utils.HTTPResponse{Message: "Postingan berhasil dihapus"})
 }
 
 // ListTipe godoc
@@ -364,22 +478,22 @@ func toPengumpulanResponse(row db.PengumpulanTuga) PengumpulanResponse {
 	}
 }
 
-func (h *Handler) validateTugasPostingan(ctx context.Context, kelasID, postinganID int32) error {
+func (h *Handler) validateTugasPostingan(ctx context.Context, kelasID, postinganID int32) (db.Postingan, error) {
 	post, err := h.db.GetPostinganByID(ctx, db.GetPostinganByIDParams{
 		ID:      postinganID,
 		KelasID: kelasID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return echo.NewHTTPError(http.StatusNotFound, "Postingan tidak ditemukan")
+			return db.Postingan{}, echo.NewHTTPError(http.StatusNotFound, "Postingan tidak ditemukan")
 		}
 		log.Println(err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa postingan")
+		return db.Postingan{}, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa postingan")
 	}
 	if post.TipeID != tipeTugasID {
-		return echo.NewHTTPError(http.StatusBadRequest, "Pengumpulan hanya berlaku untuk postingan tugas")
+		return db.Postingan{}, echo.NewHTTPError(http.StatusBadRequest, "Pengumpulan hanya berlaku untuk postingan tugas")
 	}
-	return nil
+	return post, nil
 }
 
 func (h *Handler) bindPengumpulanPath(c *echo.Context) (*PengumpulanPathRequest, error) {
@@ -393,21 +507,21 @@ func (h *Handler) bindPengumpulanPath(c *echo.Context) (*PengumpulanPathRequest,
 	return req, nil
 }
 
-func (h *Handler) authorizeMuridTugas(c *echo.Context, kodeKelas string, postinganID int32) (int32, error) {
+func (h *Handler) authorizeMuridTugas(c *echo.Context, kodeKelas string, postinganID int32) (int32, db.Postingan, error) {
 	ctx := c.Request().Context()
 
 	claims, err := utils.GetClaims(c)
 	if err != nil {
-		return 0, echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
+		return 0, db.Postingan{}, echo.NewHTTPError(http.StatusUnauthorized, "Tidak dapat mengakses data klaim")
 	}
 
 	kelasID, err := h.db.GetKelasID(ctx, kodeKelas)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return 0, echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
+			return 0, db.Postingan{}, echo.NewHTTPError(http.StatusNotFound, "Kelas tidak ditemukan")
 		}
 		log.Println(err)
-		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
+		return 0, db.Postingan{}, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa kelas")
 	}
 
 	isMember, err := h.db.IsAnggotaKelas(ctx, db.IsAnggotaKelasParams{
@@ -416,10 +530,10 @@ func (h *Handler) authorizeMuridTugas(c *echo.Context, kodeKelas string, posting
 	})
 	if err != nil {
 		log.Println(err)
-		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
+		return 0, db.Postingan{}, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa keanggotaan kelas")
 	}
 	if !isMember {
-		return 0, echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
+		return 0, db.Postingan{}, echo.NewHTTPError(http.StatusForbidden, "Anda bukan anggota kelas ini")
 	}
 
 	isGuru, err := h.db.IsGuruKelas(ctx, db.IsGuruKelasParams{
@@ -428,17 +542,18 @@ func (h *Handler) authorizeMuridTugas(c *echo.Context, kodeKelas string, posting
 	})
 	if err != nil {
 		log.Println(err)
-		return 0, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
+		return 0, db.Postingan{}, echo.NewHTTPError(http.StatusInternalServerError, "Gagal memeriksa role kelas")
 	}
 	if isGuru {
-		return 0, echo.NewHTTPError(http.StatusForbidden, "Hanya murid yang dapat mengelola pengumpulan tugas")
+		return 0, db.Postingan{}, echo.NewHTTPError(http.StatusForbidden, "Hanya murid yang dapat mengelola pengumpulan tugas")
 	}
 
-	if err := h.validateTugasPostingan(ctx, kelasID, postinganID); err != nil {
-		return 0, err
+	post, err := h.validateTugasPostingan(ctx, kelasID, postinganID)
+	if err != nil {
+		return 0, db.Postingan{}, err
 	}
 
-	return claims.UserID, nil
+	return claims.UserID, post, nil
 }
 
 // ListPengumpulan godoc
@@ -468,7 +583,7 @@ func (h *Handler) ListPengumpulan(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := h.validateTugasPostingan(ctx, kelasID, req.PostinganID); err != nil {
+	if _, err := h.validateTugasPostingan(ctx, kelasID, req.PostinganID); err != nil {
 		return err
 	}
 
@@ -509,7 +624,7 @@ func (h *Handler) NilaiPengumpulan(c *echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := h.validateTugasPostingan(ctx, kelasID, req.PostinganID); err != nil {
+	if _, err := h.validateTugasPostingan(ctx, kelasID, req.PostinganID); err != nil {
 		return err
 	}
 
@@ -592,7 +707,7 @@ func (h *Handler) GetPengumpulan(c *echo.Context) error {
 		return nil
 	}
 
-	userID, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
+	userID, _, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
 	if err != nil {
 		return err
 	}
@@ -640,9 +755,12 @@ func (h *Handler) SubmitPengumpulan(c *echo.Context) error {
 		return utils.ValidationErrorHandler(c, err)
 	}
 
-	userID, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
+	userID, post, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
 	if err != nil {
 		return err
+	}
+	if !post.MenerimaKiriman {
+		return echo.NewHTTPError(http.StatusBadRequest, "Pengumpulan tugas sedang ditutup oleh pengajar")
 	}
 
 	lampiran, err := normalizeLampiran(req.Lampiran)
@@ -709,7 +827,7 @@ func (h *Handler) TarikPengumpulan(c *echo.Context) error {
 		return nil
 	}
 
-	userID, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
+	userID, _, err := h.authorizeMuridTugas(c, req.KodeKelas, req.PostinganID)
 	if err != nil {
 		return err
 	}
