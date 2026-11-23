@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"os"
+	"os/exec"
 	"path"
 	"path-api/internal/db"
 	"path-api/internal/files"
@@ -280,6 +281,27 @@ func extractDocxText(data []byte) string {
 	return ""
 }
 
+func extractPdfText(absPath string) string {
+	pdftotextBin, err := exec.LookPath("pdftotext")
+	if err != nil {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, pdftotextBin, "-layout", "-nopgbrk", absPath, "-")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return ""
+	}
+	text := strings.TrimSpace(out.String())
+	if utf8.RuneCountInString(text) > 12000 {
+		runes := []rune(text)
+		text = strings.TrimSpace(string(runes[:12000]))
+	}
+	return text
+}
+
 func extractUploadText(paths []string) string {
 	parts := make([]string, 0, len(paths))
 	for _, rawPath := range paths {
@@ -299,9 +321,26 @@ func extractUploadText(paths []string) string {
 			if t := extractDocxText(data); t != "" {
 				parts = append(parts, t)
 			}
+		case "pdf":
+			rel := strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(rawPath), "/"), "uploads/")
+			full := filepath.Join(files.UploadRoot, filepath.FromSlash(rel))
+			if absFull, err := filepath.Abs(full); err == nil {
+				if t := extractPdfText(absFull); t != "" {
+					parts = append(parts, t)
+				}
+			}
 		}
 	}
 	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+func isUnattachedMaterialRefusal(jawaban string) bool {
+	lower := strings.ToLower(jawaban)
+	return strings.Contains(lower, "belum melampirkan") ||
+		strings.Contains(lower, "tempelkan (paste)") ||
+		strings.Contains(lower, "tempel (paste)") ||
+		strings.Contains(lower, "copy-paste") ||
+		strings.Contains(lower, "tidak ada di materi yang diberikan")
 }
 
 func isFreeModelRateLimitFailure(statusCode int, body []byte) bool {
@@ -371,9 +410,17 @@ func (h *Handler) Chat(c *echo.Context) error {
 	// When isi_materi is only a short post title/brief description (without a full document),
 	// ai.pathclass.app /v1/chat treats isi_materi as a strict closed-book text and refuses
 	// general questions about the topic. Embed short topic context into pesan instead.
+	topicLabel := strings.TrimSpace(req.IsiMateri)
+	if idx := strings.IndexByte(topicLabel, '\n'); idx > 0 {
+		topicLabel = strings.TrimSpace(topicLabel[:idx])
+	}
 	upstreamIsiMateri := isiMateri
 	if upstreamIsiMateri != "" && extractedDocText == "" && utf8.RuneCountInString(upstreamIsiMateri) < 400 {
-		pesan = fmt.Sprintf("Konteks topik materi pembelajaran: %s\n\n%s", upstreamIsiMateri, pesan)
+		pesan = fmt.Sprintf(
+			"Buatkan penjelasan atau ringkasan materi pembelajaran secara lengkap mengenai topik %q untuk membantu siswa memahami materi ini.\n\nPermintaan siswa: %s",
+			topicLabel,
+			pesan,
+		)
 		upstreamIsiMateri = ""
 	}
 
@@ -382,11 +429,11 @@ func (h *Handler) Chat(c *echo.Context) error {
 		riwayat = []ChatMessage{}
 	}
 
-	doUpstreamChat := func(useFree bool) (*http.Response, []byte, error) {
+	doUpstreamChat := func(promptText, materiText string, useFree bool) (*http.Response, []byte, error) {
 		upstreamPayload := map[string]any{
-			"pesan":                pesan,
+			"pesan":                promptText,
 			"riwayat":              riwayat,
-			"isi_materi":           upstreamIsiMateri,
+			"isi_materi":           materiText,
 			"jenjang":              strings.TrimSpace(req.Jenjang),
 			"gunakan_model_gratis": useFree,
 		}
@@ -419,13 +466,15 @@ func (h *Handler) Chat(c *echo.Context) error {
 		return resp, body, nil
 	}
 
-	resp, body, err := doUpstreamChat(req.GunakanModelGratis)
+	activeFree := req.GunakanModelGratis
+	resp, body, err := doUpstreamChat(pesan, upstreamIsiMateri, activeFree)
 	if err != nil {
 		log.Println("ai chat request error:", err)
 		return echo.NewHTTPError(http.StatusBadGateway, "Tidak dapat terhubung ke server AI")
 	}
-	if req.GunakanModelGratis && isFreeModelRateLimitFailure(resp.StatusCode, body) {
-		if retryResp, retryBody, retryErr := doUpstreamChat(false); retryErr == nil {
+	if activeFree && isFreeModelRateLimitFailure(resp.StatusCode, body) {
+		activeFree = false
+		if retryResp, retryBody, retryErr := doUpstreamChat(pesan, upstreamIsiMateri, false); retryErr == nil {
 			resp = retryResp
 			body = retryBody
 		}
@@ -437,6 +486,20 @@ func (h *Handler) Chat(c *echo.Context) error {
 	var result ChatResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return echo.NewHTTPError(http.StatusBadGateway, "Respons server AI tidak valid")
+	}
+
+	if isUnattachedMaterialRefusal(result.Jawaban) && topicLabel != "" {
+		fallbackPrompt := fmt.Sprintf(
+			"Buatkan ringkasan materi pembelajaran dan poin-poin penting mengenai topik %q untuk bahan belajar siswa.\n\nPermintaan siswa: %s",
+			topicLabel,
+			req.Pesan,
+		)
+		if retryResp, retryBody, retryErr := doUpstreamChat(fallbackPrompt, "", activeFree); retryErr == nil && retryResp.StatusCode >= 200 && retryResp.StatusCode < 300 {
+			var retryResult ChatResponse
+			if json.Unmarshal(retryBody, &retryResult) == nil && strings.TrimSpace(retryResult.Jawaban) != "" {
+				result = retryResult
+			}
+		}
 	}
 
 	h.logUsage(c.Request().Context(), claims.UserID, "bantuan_ai")
