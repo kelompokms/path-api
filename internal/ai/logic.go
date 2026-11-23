@@ -1,9 +1,11 @@
 package ai
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/labstack/echo/v5"
 )
@@ -121,6 +124,13 @@ func mimeForFilename(name string) (string, string) {
 	}
 }
 
+type remoteArtifactRef struct {
+	Name         string `json:"name"`
+	MediaType    string `json:"media_type"`
+	Availability string `json:"availability"`
+	SizeBytes    int64  `json:"size_bytes"`
+}
+
 type remoteJobEnvelope struct {
 	JobID    string          `json:"job_id"`
 	Status   string          `json:"status"`
@@ -128,10 +138,11 @@ type remoteJobEnvelope struct {
 	Error    any             `json:"error"`
 	Result   json.RawMessage `json:"result"`
 	Artifact *struct {
-		Name         string `json:"name"`
-		MediaType    string `json:"media_type"`
-		Availability string `json:"availability"`
-		SizeBytes    int64  `json:"size_bytes"`
+		Name         string             `json:"name"`
+		MediaType    string             `json:"media_type"`
+		Availability string             `json:"availability"`
+		SizeBytes    int64              `json:"size_bytes"`
+		JSON         *remoteArtifactRef `json:"json"`
 	} `json:"artifact"`
 }
 
@@ -232,7 +243,89 @@ func (h *Handler) downloadArtifact(ctx context.Context, availability, actorID st
 	return body, nil
 }
 
-// Chat proxies student/teacher Bantuan AI questions to ai.pathclass.app /v1/chat.
+func extractDocxText(data []byte) string {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return ""
+	}
+	for _, f := range zr.File {
+		if f.Name != "word/document.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return ""
+		}
+		defer rc.Close()
+		dec := xml.NewDecoder(io.LimitReader(rc, 2<<20))
+		var sb strings.Builder
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			switch t := tok.(type) {
+			case xml.CharData:
+				sb.Write(t)
+			case xml.EndElement:
+				if t.Name.Local == "p" || t.Name.Local == "tr" {
+					sb.WriteByte('\n')
+				} else if t.Name.Local == "tc" {
+					sb.WriteByte('\t')
+				}
+			}
+		}
+		return strings.TrimSpace(sb.String())
+	}
+	return ""
+}
+
+func extractUploadText(paths []string) string {
+	parts := make([]string, 0, len(paths))
+	for _, rawPath := range paths {
+		name, data, ok := readSafeUploadFile(rawPath)
+		if !ok {
+			continue
+		}
+		ext := strings.ToLower(strings.TrimPrefix(path.Ext(name), "."))
+		switch ext {
+		case "txt", "csv":
+			if utf8.Valid(data) {
+				if t := strings.TrimSpace(string(data)); t != "" {
+					parts = append(parts, t)
+				}
+			}
+		case "docx":
+			if t := extractDocxText(data); t != "" {
+				parts = append(parts, t)
+			}
+		}
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+func isFreeModelRateLimitFailure(statusCode int, body []byte) bool {
+	if statusCode == http.StatusTooManyRequests || statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable {
+		lower := strings.ToLower(string(body))
+		return strings.Contains(lower, "llm_unavailable") ||
+			strings.Contains(lower, "rate-limited") ||
+			strings.Contains(lower, "429") ||
+			strings.Contains(lower, "tidak merespons")
+	}
+	return false
+}
+
+// Chat godoc
+//
+//	@Summary		Chat Bantuan Belajar dengan AI
+//	@Description	Mengirimkan pertanyaan materi ke layanan AI (ai.pathclass.app /v1/chat) dengan dukungan riwayat percakapan
+//	@Tags			AI
+//	@Accept			json
+//	@Produce		json
+//	@Param			request				body		ChatRequest	true	"Permintaan Chat AI"
+//	@Success		200					{object}	ChatResponse
+//	@Failure		400,401,502,503		{object}	utils.HTTPResponse
+//	@Router			/ai/chat [post]
 func (h *Handler) Chat(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -265,45 +358,77 @@ func (h *Handler) Chat(c *echo.Context) error {
 		pesan = fmt.Sprintf("Tolong jelaskan dengan bantuan format %s.\n\nPertanyaan: %s", strings.Join(activeModes, ", "), pesan)
 	}
 
+	isiMateri := strings.TrimSpace(req.IsiMateri)
+	extractedDocText := extractUploadText(req.LampiranPaths)
+	if extractedDocText != "" {
+		if isiMateri != "" {
+			isiMateri = isiMateri + "\n\n" + extractedDocText
+		} else {
+			isiMateri = extractedDocText
+		}
+	}
+
+	// When isi_materi is only a short post title/brief description (without a full document),
+	// ai.pathclass.app /v1/chat treats isi_materi as a strict closed-book text and refuses
+	// general questions about the topic. Embed short topic context into pesan instead.
+	upstreamIsiMateri := isiMateri
+	if upstreamIsiMateri != "" && extractedDocText == "" && utf8.RuneCountInString(upstreamIsiMateri) < 400 {
+		pesan = fmt.Sprintf("Konteks topik materi pembelajaran: %s\n\n%s", upstreamIsiMateri, pesan)
+		upstreamIsiMateri = ""
+	}
+
 	riwayat := req.Riwayat
 	if riwayat == nil {
 		riwayat = []ChatMessage{}
 	}
-	upstreamPayload := map[string]any{
-		"pesan":                pesan,
-		"riwayat":              riwayat,
-		"isi_materi":           strings.TrimSpace(req.IsiMateri),
-		"jenjang":              strings.TrimSpace(req.Jenjang),
-		"gunakan_model_gratis": req.GunakanModelGratis,
-	}
-	payloadBytes, err := json.Marshal(upstreamPayload)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menyiapkan permintaan AI")
+
+	doUpstreamChat := func(useFree bool) (*http.Response, []byte, error) {
+		upstreamPayload := map[string]any{
+			"pesan":                pesan,
+			"riwayat":              riwayat,
+			"isi_materi":           upstreamIsiMateri,
+			"jenjang":              strings.TrimSpace(req.Jenjang),
+			"gunakan_model_gratis": useFree,
+		}
+		payloadBytes, err := json.Marshal(upstreamPayload)
+		if err != nil {
+			return nil, nil, err
+		}
+		httpReq, err := http.NewRequestWithContext(
+			c.Request().Context(),
+			http.MethodPost,
+			h.effectiveBaseURL()+"/v1/chat",
+			bytes.NewReader(payloadBytes),
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("X-API-Key", apiKey)
+		httpReq.Header.Set("X-Actor-Id", actorIDForClaims(claims))
+
+		resp, err := h.httpClient.Do(httpReq)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer resp.Body.Close()
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return resp, nil, readErr
+		}
+		return resp, body, nil
 	}
 
-	httpReq, err := http.NewRequestWithContext(
-		c.Request().Context(),
-		http.MethodPost,
-		h.effectiveBaseURL()+"/v1/chat",
-		bytes.NewReader(payloadBytes),
-	)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat permintaan AI")
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-API-Key", apiKey)
-	httpReq.Header.Set("X-Actor-Id", actorIDForClaims(claims))
-
-	resp, err := h.httpClient.Do(httpReq)
+	resp, body, err := doUpstreamChat(req.GunakanModelGratis)
 	if err != nil {
 		log.Println("ai chat request error:", err)
 		return echo.NewHTTPError(http.StatusBadGateway, "Tidak dapat terhubung ke server AI")
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, "Gagal membaca respons server AI")
+	if req.GunakanModelGratis && isFreeModelRateLimitFailure(resp.StatusCode, body) {
+		if retryResp, retryBody, retryErr := doUpstreamChat(false); retryErr == nil {
+			resp = retryResp
+			body = retryBody
+		}
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return echo.NewHTTPError(http.StatusBadGateway, extractRemoteAIError(body, resp.StatusCode))
@@ -318,8 +443,17 @@ func (h *Handler) Chat(c *echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// ExplainMateri proxies visual material explanation (tables, arrow diagrams, illustrations)
-// to ai.pathclass.app /v1/materials/explain, polls the job, and saves the resulting PDF artifact.
+// ExplainMateri godoc
+//
+//	@Summary		Penjelasan Visual Materi dengan AI
+//	@Description	Membuat penjelasan materi dalam bentuk dokumen PDF visual (tabel, diagram, ilustrasi, atau kombinasi) melalui ai.pathclass.app /v1/materials/explain
+//	@Tags			AI
+//	@Accept			json
+//	@Produce		json
+//	@Param			request				body		ExplainMateriRequest	true	"Permintaan Penjelasan Materi AI"
+//	@Success		200					{object}	ExplainMateriResponse
+//	@Failure		400,401,500,502,503	{object}	utils.HTTPResponse
+//	@Router			/ai/materi/explain [post]
 func (h *Handler) ExplainMateri(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -444,8 +578,17 @@ func (h *Handler) ExplainMateri(c *echo.Context) error {
 	})
 }
 
-// GenerateMateri proxies teacher material creation to ai.pathclass.app /v1/materials/generate,
-// polls the async job, saves the generated PDF into /uploads, and returns ready-to-post metadata.
+// GenerateMateri godoc
+//
+//	@Summary		Buat Materi Pembelajaran dengan AI (Guru)
+//	@Description	Membuat materi pembelajaran berupa dokumen PDF atau PowerPoint (PPTX) melalui ai.pathclass.app /v1/materials/generate (khusus guru atau admin)
+//	@Tags			AI
+//	@Accept			json
+//	@Produce		json
+//	@Param			request					body		GenerateMateriRequest	true	"Permintaan Pembuatan Materi AI"
+//	@Success		200						{object}	GenerateMateriResponse
+//	@Failure		400,401,403,500,502,503	{object}	utils.HTTPResponse
+//	@Router			/ai/materi/generate [post]
 func (h *Handler) GenerateMateri(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -471,6 +614,10 @@ func (h *Handler) GenerateMateri(c *echo.Context) error {
 
 	// Image generation endpoints on ai.pathclass.app cannot use the free model tier.
 	gunakanGratis := req.GunakanModelGratis && !req.Ilustrasi && !req.Kombinasi
+	formatKeluaran := strings.ToLower(strings.TrimSpace(req.FormatKeluaran))
+	if formatKeluaran != "pptx" {
+		formatKeluaran = "pdf"
+	}
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
@@ -481,8 +628,16 @@ func (h *Handler) GenerateMateri(c *echo.Context) error {
 	_ = mw.WriteField("diagram", strconv.FormatBool(req.Diagram))
 	_ = mw.WriteField("ilustrasi", strconv.FormatBool(req.Ilustrasi))
 	_ = mw.WriteField("kombinasi", strconv.FormatBool(req.Kombinasi))
-	_ = mw.WriteField("format_keluaran", "pdf")
+	_ = mw.WriteField("format_keluaran", formatKeluaran)
 	_ = mw.WriteField("gunakan_model_gratis", strconv.FormatBool(gunakanGratis))
+
+	for _, rawPath := range req.LampiranPaths {
+		if name, data, ok := readSafeUploadFile(rawPath); ok && isPreferredAnswerDoc(name) {
+			upName, upMime := mimeForFilename(name)
+			_ = writeMultipartFile(mw, "berkas_materi", upName, upMime, data)
+			break
+		}
+	}
 	if err := mw.Close(); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menyiapkan data materi AI")
 	}
@@ -599,8 +754,21 @@ func isPreferredAnswerDoc(name string) bool {
 	}
 }
 
-// KoreksiTugas proxies teacher AI grading to ai.pathclass.app /v1/assessments/grade,
-// reading submitted student files from local uploads storage and returning per-student scores + rekap file.
+// KoreksiTugas godoc
+//
+//	@Summary		Koreksi Jawaban Tugas Siswa dengan AI (Guru)
+//	@Description	Mengoreksi kiriman tugas siswa menggunakan kunci jawaban (file PDF/DOCX/TXT/CSV atau deskripsi kunci) melalui ai.pathclass.app /v1/assessments/grade
+//	@Tags			AI
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			kode_kelas				formData	string	true	"Kode Kelas"
+//	@Param			postingan_id			formData	int		true	"ID Postingan Tugas"
+//	@Param			pengguna_ids			formData	string	false	"Daftar ID pengguna siswa dipisahkan koma"
+//	@Param			deskripsi_kunci			formData	string	false	"Deskripsi kunci jawaban teks"
+//	@Param			berkas_kunci			formData	file	false	"Berkas kunci jawaban (PDF, DOCX, TXT, CSV)"
+//	@Success		200						{object}	KoreksiTugasResponse
+//	@Failure		400,401,403,404,500,502,503	{object}	utils.HTTPResponse
+//	@Router			/ai/koreksi [post]
 func (h *Handler) KoreksiTugas(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -1000,6 +1168,36 @@ func formatNumericPercent(m map[string]any, keys ...string) string {
 	return ""
 }
 
+func extractNoteOrEvidence(m map[string]any, keys ...string) string {
+	for _, k := range keys {
+		v, ok := m[k]
+		if !ok || v == nil {
+			continue
+		}
+		switch val := v.(type) {
+		case []any:
+			parts := make([]string, 0, len(val))
+			for _, item := range val {
+				if s := strings.TrimSpace(fmt.Sprint(item)); s != "" && s != "<nil>" {
+					parts = append(parts, s)
+				}
+			}
+			if len(parts) > 0 {
+				return strings.Join(parts, "; ")
+			}
+		case string:
+			if s := strings.TrimSpace(val); s != "" {
+				return s
+			}
+		default:
+			if s := strings.TrimSpace(fmt.Sprint(val)); s != "" && s != "<nil>" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
 func extractAssessmentSummary(raw json.RawMessage, isSimilarity bool) ([]string, []string) {
 	analisa := []string{}
 	ringkasan := []string{}
@@ -1023,6 +1221,20 @@ func extractAssessmentSummary(raw json.RawMessage, isSimilarity bool) ([]string,
 	}
 
 	if isSimilarity {
+		// Map per-student similarity keterangan from "siswa" array if available.
+		studentNotes := make(map[string]string)
+		if siswaList, ok := parsed["siswa"].([]any); ok {
+			for _, item := range siswaList {
+				if row, ok := item.(map[string]any); ok {
+					n := strings.ToLower(firstNonEmptyString(row, "nama", "email"))
+					ket := firstNonEmptyString(row, "keterangan", "label", "kategori", "status")
+					if n != "" && ket != "" {
+						studentNotes[n] = ket
+					}
+				}
+			}
+		}
+
 		for _, listKey := range []string{"pasangan", "pairs", "kemiripan", "hasil", "siswa"} {
 			list, ok := parsed[listKey].([]any)
 			if !ok || len(list) == 0 {
@@ -1034,10 +1246,13 @@ func extractAssessmentSummary(raw json.RawMessage, isSimilarity bool) ([]string,
 					continue
 				}
 				a := firstNonEmptyString(row, "siswa_a", "nama_a", "siswa_1", "nama_1", "nama", "email_a", "email")
-				b := firstNonEmptyString(row, "siswa_b", "nama_b", "siswa_2", "nama_2", "email_b")
-				pct := formatNumericPercent(row, "persentase", "kemiripan_persen", "skor_kemiripan", "similarity", "skor", "score")
+				b := firstNonEmptyString(row, "siswa_b", "nama_b", "siswa_2", "nama_2", "paling_mirip_dengan", "email_b")
+				pct := formatNumericPercent(row, "persentase", "kemiripan", "persentase_kemiripan", "kemiripan_persen", "skor_kemiripan", "similarity", "skor", "score")
 				label := firstNonEmptyString(row, "label", "kategori", "status", "tingkat")
-				note := firstNonEmptyString(row, "alasan", "catatan", "penjelasan", "saran")
+				note := extractNoteOrEvidence(row, "keterangan", "alasan", "catatan", "penjelasan", "saran")
+				if note == "" && a != "" {
+					note = studentNotes[strings.ToLower(a)]
+				}
 				parts := []string{}
 				if a != "" && b != "" {
 					parts = append(parts, fmt.Sprintf("%s ↔ %s", a, b))
@@ -1078,9 +1293,9 @@ func extractAssessmentSummary(raw json.RawMessage, isSimilarity bool) ([]string,
 					continue
 				}
 				nama := firstNonEmptyString(row, "nama", "siswa", "email")
-				pct := formatNumericPercent(row, "persentase", "persentase_ai", "skor_ai", "indikasi_persen", "probability", "probabilitas", "skor", "score")
-				label := firstNonEmptyString(row, "label", "indikasi", "kategori", "status")
-				note := firstNonEmptyString(row, "alasan", "catatan", "penjelasan", "saran")
+				pct := formatNumericPercent(row, "persentase", "persentase_indikasi_ai", "persentase_ai", "skor_ai", "indikasi_persen", "probability", "probabilitas", "skor", "score")
+				label := firstNonEmptyString(row, "label", "band", "indikasi", "kategori", "status")
+				note := extractNoteOrEvidence(row, "bukti", "keterangan", "alasan", "catatan", "penjelasan", "saran")
 				parts := []string{}
 				if nama != "" {
 					parts = append(parts, nama+":")
@@ -1227,7 +1442,17 @@ func (h *Handler) runAssessmentCheck(
 	})
 }
 
-// CekKemiripan proxies student answer similarity detection to ai.pathclass.app /v1/assessments/similarity.
+// CekKemiripan godoc
+//
+//	@Summary		Periksa Kemiripan Jawaban Tugas Siswa (Guru)
+//	@Description	Memeriksa indikasi kemiripan/plagiasi antarjawaban siswa pada suatu tugas melalui ai.pathclass.app /v1/assessments/similarity
+//	@Tags			AI
+//	@Accept			json
+//	@Produce		json
+//	@Param			request						body		AssessmentCheckRequest	true	"Permintaan Cek Kemiripan AI"
+//	@Success		200							{object}	AssessmentCheckResponse
+//	@Failure		400,401,403,404,500,502,503	{object}	utils.HTTPResponse
+//	@Router			/ai/similarity [post]
 func (h *Handler) CekKemiripan(c *echo.Context) error {
 	return h.runAssessmentCheck(
 		c,
@@ -1240,20 +1465,40 @@ func (h *Handler) CekKemiripan(c *echo.Context) error {
 	)
 }
 
-// CekIndikasiAI proxies AI-usage detection on student answers to ai.pathclass.app /v1/assessments/ai-usage.
+// CekIndikasiAI godoc
+//
+//	@Summary		Periksa Indikasi Penggunaan AI pada Jawaban Siswa (Guru)
+//	@Description	Memeriksa indikasi penggunaan AI pada jawaban tugas siswa melalui ai.pathclass.app /v1/assessments/ai-usage
+//	@Tags			AI
+//	@Accept			json
+//	@Produce		json
+//	@Param			request						body		AssessmentCheckRequest	true	"Permintaan Cek Indikasi AI"
+//	@Success		200							{object}	AssessmentCheckResponse
+//	@Failure		400,401,403,404,500,502,503	{object}	utils.HTTPResponse
+//	@Router			/ai/indikasi [post]
 func (h *Handler) CekIndikasiAI(c *echo.Context) error {
 	return h.runAssessmentCheck(
 		c,
 		"/v1/assessments/ai-usage",
 		"indikasi_ai",
-		"rekap-indikasi-ai.xlsx",
+		"laporan-indikasi-ai.pdf",
 		1,
 		"Belum ada kiriman siswa untuk diperiksa indikasi AI",
 		false,
 	)
 }
 
-// RingkasDokumen proxies long document summarization to ai.pathclass.app /v1/documents/summarize.
+// RingkasDokumen godoc
+//
+//	@Summary		Ringkas Dokumen Materi Panjang dengan AI
+//	@Description	Meringkas dokumen materi (PDF, DOCX, TXT, CSV) yang terlampir pada materi kelas melalui ai.pathclass.app /v1/documents/summarize
+//	@Tags			AI
+//	@Accept			json
+//	@Produce		json
+//	@Param			request				body		RingkasDokumenRequest	true	"Permintaan Ringkas Dokumen AI"
+//	@Success		200					{object}	ExplainMateriResponse
+//	@Failure		400,401,500,502,503	{object}	utils.HTTPResponse
+//	@Router			/ai/dokumen/ringkas [post]
 func (h *Handler) RingkasDokumen(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {
@@ -1301,7 +1546,9 @@ func (h *Handler) RingkasDokumen(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal menyiapkan permintaan ringkasan AI")
 	}
 
-	actorID := actorIDForClaims(claims)
+	// ai.pathclass.app restricts /v1/documents/summarize to guru: actors;
+	// use guru:<userID> upstream while logging under claims.UserID locally.
+	actorID := fmt.Sprintf("guru:%d", claims.UserID)
 	ctx := c.Request().Context()
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, h.effectiveBaseURL()+"/v1/documents/summarize", &buf)
 	if err != nil {
@@ -1336,9 +1583,11 @@ func (h *Handler) RingkasDokumen(c *echo.Context) error {
 	}
 
 	var sumResult struct {
-		Judul            string `json:"judul"`
-		DeskripsiSingkat string `json:"deskripsi_singkat"`
-		Ringkasan        string `json:"ringkasan"`
+		Judul              string   `json:"judul"`
+		DeskripsiSingkat   string   `json:"deskripsi_singkat"`
+		Ringkasan          string   `json:"ringkasan"`
+		RingkasanEksekutif string   `json:"ringkasan_eksekutif"`
+		TemuanUtama        []string `json:"temuan_utama"`
 	}
 	_ = json.Unmarshal(finalJob.Result, &sumResult)
 
@@ -1348,8 +1597,44 @@ func (h *Handler) RingkasDokumen(c *echo.Context) error {
 	}
 	jawaban := strings.TrimSpace(sumResult.Ringkasan)
 	if jawaban == "" {
+		jawaban = strings.TrimSpace(sumResult.RingkasanEksekutif)
+	}
+	if jawaban == "" {
 		jawaban = strings.TrimSpace(sumResult.DeskripsiSingkat)
 	}
+
+	// If job.result only contains document metadata, fetch the JSON summary artifact (telaah-dokumen.json) if available.
+	if jawaban == "" && finalJob.Artifact != nil && finalJob.Artifact.JSON != nil && strings.TrimSpace(finalJob.Artifact.JSON.Availability) != "" {
+		if jsonBytes, err := h.downloadArtifact(ctx, finalJob.Artifact.JSON.Availability, actorID); err == nil {
+			var detail struct {
+				Judul              string   `json:"judul"`
+				RingkasanEksekutif string   `json:"ringkasan_eksekutif"`
+				TemuanUtama        []string `json:"temuan_utama"`
+			}
+			if json.Unmarshal(jsonBytes, &detail) == nil {
+				if judul == "" && strings.TrimSpace(detail.Judul) != "" {
+					judul = strings.TrimSpace(detail.Judul)
+				}
+				parts := make([]string, 0, 2)
+				if re := strings.TrimSpace(detail.RingkasanEksekutif); re != "" {
+					parts = append(parts, re)
+				}
+				if len(detail.TemuanUtama) > 0 {
+					bullets := make([]string, 0, len(detail.TemuanUtama))
+					for _, t := range detail.TemuanUtama {
+						if trimmed := strings.TrimSpace(t); trimmed != "" {
+							bullets = append(bullets, "- "+trimmed)
+						}
+					}
+					if len(bullets) > 0 {
+						parts = append(parts, "**Temuan Utama:**\n"+strings.Join(bullets, "\n"))
+					}
+				}
+				jawaban = strings.TrimSpace(strings.Join(parts, "\n\n"))
+			}
+		}
+	}
+
 	if jawaban == "" {
 		jawaban = "Ringkasan dokumen AI telah selesai dibuat. Buka dokumen PDF di bawah ini untuk melihat ringkasan lengkapnya."
 	}
@@ -1381,7 +1666,15 @@ func (h *Handler) RingkasDokumen(c *echo.Context) error {
 	})
 }
 
-// OpsUsage proxies AI token budget & free quota info from ai.pathclass.app /v1/ops/usage (admin only).
+// OpsUsage godoc
+//
+//	@Summary		Status Pemakaian Token & Kuota AI (Admin)
+//	@Description	Mengambil informasi sisa anggaran token berbayar dan kuota model gratis dari ai.pathclass.app /v1/ops/usage (khusus admin)
+//	@Tags			AI
+//	@Produce		json
+//	@Success		200					{object}	map[string]any
+//	@Failure		401,403,502,503		{object}	utils.HTTPResponse
+//	@Router			/ai/ops/usage [get]
 func (h *Handler) OpsUsage(c *echo.Context) error {
 	claims, err := utils.GetClaims(c)
 	if err != nil {

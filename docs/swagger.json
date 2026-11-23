@@ -601,6 +601,558 @@
                 }
             }
         },
+        "/ai/chat": {
+            "post": {
+                "description": "Mengirimkan pertanyaan materi ke layanan AI (ai.pathclass.app /v1/chat) dengan dukungan riwayat percakapan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Chat Bantuan Belajar dengan AI",
+                "parameters": [
+                    {
+                        "description": "Permintaan Chat AI",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.ChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.ChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/dokumen/ringkas": {
+            "post": {
+                "description": "Meringkas dokumen materi (PDF, DOCX, TXT, CSV) yang terlampir pada materi kelas melalui ai.pathclass.app /v1/documents/summarize",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Ringkas Dokumen Materi Panjang dengan AI",
+                "parameters": [
+                    {
+                        "description": "Permintaan Ringkas Dokumen AI",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.RingkasDokumenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.ExplainMateriResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/indikasi": {
+            "post": {
+                "description": "Memeriksa indikasi penggunaan AI pada jawaban tugas siswa melalui ai.pathclass.app /v1/assessments/ai-usage",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Periksa Indikasi Penggunaan AI pada Jawaban Siswa (Guru)",
+                "parameters": [
+                    {
+                        "description": "Permintaan Cek Indikasi AI",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.AssessmentCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.AssessmentCheckResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/koreksi": {
+            "post": {
+                "description": "Mengoreksi kiriman tugas siswa menggunakan kunci jawaban (file PDF/DOCX/TXT/CSV atau deskripsi kunci) melalui ai.pathclass.app /v1/assessments/grade",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Koreksi Jawaban Tugas Siswa dengan AI (Guru)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Kode Kelas",
+                        "name": "kode_kelas",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID Postingan Tugas",
+                        "name": "postingan_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Daftar ID pengguna siswa dipisahkan koma",
+                        "name": "pengguna_ids",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Deskripsi kunci jawaban teks",
+                        "name": "deskripsi_kunci",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Berkas kunci jawaban (PDF, DOCX, TXT, CSV)",
+                        "name": "berkas_kunci",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.KoreksiTugasResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/materi/explain": {
+            "post": {
+                "description": "Membuat penjelasan materi dalam bentuk dokumen PDF visual (tabel, diagram, ilustrasi, atau kombinasi) melalui ai.pathclass.app /v1/materials/explain",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Penjelasan Visual Materi dengan AI",
+                "parameters": [
+                    {
+                        "description": "Permintaan Penjelasan Materi AI",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.ExplainMateriRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.ExplainMateriResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/materi/generate": {
+            "post": {
+                "description": "Membuat materi pembelajaran berupa dokumen PDF atau PowerPoint (PPTX) melalui ai.pathclass.app /v1/materials/generate (khusus guru atau admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Buat Materi Pembelajaran dengan AI (Guru)",
+                "parameters": [
+                    {
+                        "description": "Permintaan Pembuatan Materi AI",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.GenerateMateriRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.GenerateMateriResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/ops/usage": {
+            "get": {
+                "description": "Mengambil informasi sisa anggaran token berbayar dan kuota model gratis dari ai.pathclass.app /v1/ops/usage (khusus admin)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Status Pemakaian Token \u0026 Kuota AI (Admin)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/similarity": {
+            "post": {
+                "description": "Memeriksa indikasi kemiripan/plagiasi antarjawaban siswa pada suatu tugas melalui ai.pathclass.app /v1/assessments/similarity",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AI"
+                ],
+                "summary": "Periksa Kemiripan Jawaban Tugas Siswa (Guru)",
+                "parameters": [
+                    {
+                        "description": "Permintaan Cek Kemiripan AI",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.AssessmentCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.AssessmentCheckResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/utils.HTTPResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/oauth/{provider}": {
             "get": {
                 "description": "Mengalihkan pengguna ke halaman persetujuan OAuth2 provider (google atau discord) dengan PKCE dan state cookie bertanda tangan",
@@ -2751,6 +3303,308 @@
                 },
                 "role": {
                     "type": "string"
+                }
+            }
+        },
+        "ai.AssessmentCheckRequest": {
+            "type": "object",
+            "required": [
+                "kode_kelas",
+                "postingan_id"
+            ],
+            "properties": {
+                "gunakan_model_gratis": {
+                    "type": "boolean"
+                },
+                "jenjang": {
+                    "type": "string"
+                },
+                "kode_kelas": {
+                    "type": "string"
+                },
+                "pengguna_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "postingan_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ai.AssessmentCheckResponse": {
+            "type": "object",
+            "properties": {
+                "analisa": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "rekap_file": {
+                    "$ref": "#/definitions/files.UploadedPostinganFile"
+                },
+                "ringkasan": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "ai.ChatMessage": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "ai.ChatRequest": {
+            "type": "object",
+            "required": [
+                "pesan"
+            ],
+            "properties": {
+                "gunakan_model_gratis": {
+                    "type": "boolean"
+                },
+                "isi_materi": {
+                    "type": "string"
+                },
+                "jenjang": {
+                    "type": "string"
+                },
+                "lampiran_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pesan": {
+                    "type": "string"
+                },
+                "riwayat": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ai.ChatMessage"
+                    }
+                }
+            }
+        },
+        "ai.ChatResponse": {
+            "type": "object",
+            "properties": {
+                "berbasis_materi": {
+                    "type": "boolean"
+                },
+                "degraded": {
+                    "type": "boolean"
+                },
+                "jawaban": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "route": {
+                    "type": "string"
+                }
+            }
+        },
+        "ai.ExplainMateriRequest": {
+            "type": "object",
+            "required": [
+                "pertanyaan"
+            ],
+            "properties": {
+                "deskripsi_materi": {
+                    "type": "string"
+                },
+                "diagram": {
+                    "type": "boolean"
+                },
+                "gunakan_model_gratis": {
+                    "type": "boolean"
+                },
+                "ilustrasi": {
+                    "type": "boolean"
+                },
+                "isi_materi": {
+                    "type": "string"
+                },
+                "jenjang": {
+                    "type": "string"
+                },
+                "kombinasi": {
+                    "type": "boolean"
+                },
+                "lampiran_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pertanyaan": {
+                    "type": "string"
+                },
+                "tabel": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "ai.ExplainMateriResponse": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "$ref": "#/definitions/files.UploadedPostinganFile"
+                },
+                "jawaban": {
+                    "type": "string"
+                },
+                "judul": {
+                    "type": "string"
+                }
+            }
+        },
+        "ai.GenerateMateriRequest": {
+            "type": "object",
+            "required": [
+                "judul"
+            ],
+            "properties": {
+                "deskripsi_materi": {
+                    "type": "string"
+                },
+                "diagram": {
+                    "type": "boolean"
+                },
+                "format_keluaran": {
+                    "type": "string"
+                },
+                "gunakan_model_gratis": {
+                    "type": "boolean"
+                },
+                "ilustrasi": {
+                    "type": "boolean"
+                },
+                "jenjang": {
+                    "type": "string"
+                },
+                "judul": {
+                    "type": "string"
+                },
+                "kombinasi": {
+                    "type": "boolean"
+                },
+                "lampiran_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tabel": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "ai.GenerateMateriResponse": {
+            "type": "object",
+            "properties": {
+                "deskripsi": {
+                    "type": "string"
+                },
+                "judul": {
+                    "type": "string"
+                },
+                "lampiran": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/files.UploadedPostinganFile"
+                    }
+                }
+            }
+        },
+        "ai.KoreksiSiswaResult": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "nama": {
+                    "type": "string"
+                },
+                "nilai": {
+                    "type": "integer"
+                },
+                "pengguna_id": {
+                    "type": "integer"
+                },
+                "saran": {
+                    "type": "string"
+                }
+            }
+        },
+        "ai.KoreksiTugasResponse": {
+            "type": "object",
+            "properties": {
+                "analisa": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "hasil": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ai.KoreksiSiswaResult"
+                    }
+                },
+                "rekap_file": {
+                    "$ref": "#/definitions/files.UploadedPostinganFile"
+                }
+            }
+        },
+        "ai.RingkasDokumenRequest": {
+            "type": "object",
+            "required": [
+                "lampiran_paths"
+            ],
+            "properties": {
+                "diagram": {
+                    "type": "boolean"
+                },
+                "fokus": {
+                    "type": "string"
+                },
+                "gunakan_model_gratis": {
+                    "type": "boolean"
+                },
+                "jenjang": {
+                    "type": "string"
+                },
+                "judul": {
+                    "type": "string"
+                },
+                "lampiran_paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

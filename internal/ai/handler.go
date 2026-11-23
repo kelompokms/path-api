@@ -37,6 +37,7 @@ type ChatMessage struct {
 type ChatRequest struct {
 	Pesan              string        `json:"pesan" validate:"required"`
 	IsiMateri          string        `json:"isi_materi"`
+	LampiranPaths      []string      `json:"lampiran_paths"`
 	Jenjang            string        `json:"jenjang"`
 	Modes              []string      `json:"modes"`
 	Riwayat            []ChatMessage `json:"riwayat"`
@@ -47,6 +48,7 @@ type ChatResponse struct {
 	Jawaban        string `json:"jawaban"`
 	Model          string `json:"model"`
 	Route          string `json:"route"`
+	Degraded       bool   `json:"degraded"`
 	BerbasisMateri bool   `json:"berbasis_materi"`
 }
 
@@ -70,14 +72,16 @@ type ExplainMateriResponse struct {
 }
 
 type GenerateMateriRequest struct {
-	Judul              string `json:"judul" validate:"required"`
-	DeskripsiMateri    string `json:"deskripsi_materi"`
-	Jenjang            string `json:"jenjang"`
-	Tabel              bool   `json:"tabel"`
-	Diagram            bool   `json:"diagram"`
-	Ilustrasi          bool   `json:"ilustrasi"`
-	Kombinasi          bool   `json:"kombinasi"`
-	GunakanModelGratis bool   `json:"gunakan_model_gratis"`
+	Judul              string   `json:"judul" validate:"required"`
+	DeskripsiMateri    string   `json:"deskripsi_materi"`
+	LampiranPaths      []string `json:"lampiran_paths"`
+	Jenjang            string   `json:"jenjang"`
+	Tabel              bool     `json:"tabel"`
+	Diagram            bool     `json:"diagram"`
+	Ilustrasi          bool     `json:"ilustrasi"`
+	Kombinasi          bool     `json:"kombinasi"`
+	FormatKeluaran     string   `json:"format_keluaran"`
+	GunakanModelGratis bool     `json:"gunakan_model_gratis"`
 }
 
 type GenerateMateriResponse struct {

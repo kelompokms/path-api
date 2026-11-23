@@ -370,22 +370,31 @@ func TestSimilarityIndikasiRingkasAndOpsUsage(t *testing.T) {
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte(`{"job_id":"sim-1","status":"queued"}`))
 		case "/v1/jobs/sim-1":
-			_, _ = w.Write([]byte(`{"job_id":"sim-1","status":"done","result":{"deskripsi_hasil_analisa":["Terdeteksi 1 pasangan mirip"],"pasangan":[{"siswa_a":"Budi","siswa_b":"Siti","persentase":85,"label":"Tinggi"}]},"artifact":{"name":"sim.xlsx","availability":"/v1/jobs/sim-1/artifact"}}`))
+			_, _ = w.Write([]byte(`{"job_id":"sim-1","status":"done","result":{"deskripsi_hasil_analisa":["Terdeteksi 1 pasangan mirip"],"siswa":[{"nama":"Budi","persentase_kemiripan":85,"keterangan":"Kemiripan tinggi — perlu ditinjau pengajar","paling_mirip_dengan":"Siti"}],"pasangan":[{"siswa_a":"Budi","siswa_b":"Siti","kemiripan":85}]},"artifact":{"name":"sim.xlsx","availability":"/v1/jobs/sim-1/artifact"}}`))
 		case "/v1/jobs/sim-1/artifact":
 			_, _ = w.Write([]byte("PK-sim-xlsx"))
 		case "/v1/assessments/ai-usage":
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte(`{"job_id":"aiu-1","status":"queued"}`))
 		case "/v1/jobs/aiu-1":
-			_, _ = w.Write([]byte(`{"job_id":"aiu-1","status":"done","result":{"deskripsi_hasil_analisa":["1 siswa indikasi sedang"],"siswa":[{"nama":"Budi","persentase":60,"label":"Sedang"}]},"artifact":{"name":"aiu.xlsx","availability":"/v1/jobs/aiu-1/artifact"}}`))
+			_, _ = w.Write([]byte(`{"job_id":"aiu-1","status":"done","result":{"deskripsi_hasil_analisa":["1 siswa indikasi sedang"],"siswa":[{"nama":"Budi","persentase_indikasi_ai":60,"band":"Sedang","bukti":["Kosakata sangat formal","Struktur baku"]}]},"artifact":{"name":"laporan-indikasi-ai.pdf","availability":"/v1/jobs/aiu-1/artifact"}}`))
 		case "/v1/jobs/aiu-1/artifact":
-			_, _ = w.Write([]byte("PK-aiu-xlsx"))
+			_, _ = w.Write([]byte("%PDF-1.4-aiu"))
 		case "/v1/documents/summarize":
+			assert.Equal(t, "guru:7", r.Header.Get("X-Actor-Id"))
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte(`{"job_id":"sum-1","status":"queued"}`))
 		case "/v1/jobs/sum-1":
-			_, _ = w.Write([]byte(`{"job_id":"sum-1","status":"done","result":{"judul":"Ringkasan Algoritma","deskripsi_singkat":"Poin utama algoritma."},"artifact":{"name":"ringkasan.pdf","availability":"/v1/jobs/sum-1/artifact"}}`))
+			if r.URL.Query().Get("format") == "json" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write([]byte(`{"job_id":"sum-1","status":"done","result":{"judul":"Ringkasan Algoritma","jumlah_bagian":1},"artifact":{"name":"ringkasan.pdf","availability":"/v1/jobs/sum-1/artifact","json":{"name":"telaah-dokumen.json","availability":"/v1/jobs/sum-1/artifact?format=json"}}}`))
 		case "/v1/jobs/sum-1/artifact":
+			if r.URL.Query().Get("format") == "json" {
+				_, _ = w.Write([]byte(`{"judul":"Ringkasan Algoritma","ringkasan_eksekutif":"Poin utama algoritma.","temuan_utama":["Langkah logis","Sistematis"]}`))
+				return
+			}
 			_, _ = w.Write([]byte("%PDF-1.4 summary"))
 		case "/v1/ops/usage":
 			w.Header().Set("Content-Type", "application/json")
@@ -446,7 +455,8 @@ func TestSimilarityIndikasiRingkasAndOpsUsage(t *testing.T) {
 	var simResp AssessmentCheckResponse
 	require.NoError(t, json.Unmarshal(simRec.Body.Bytes(), &simResp))
 	require.NotNil(t, simResp.RekapFile)
-	assert.Contains(t, simResp.Ringkasan[0], "Budi ↔ Siti")
+	assert.Contains(t, simResp.Ringkasan[0], "Budi ↔ Siti 85%")
+	assert.Contains(t, simResp.Ringkasan[0], "Kemiripan tinggi")
 
 	// 2. AI Usage Indikasi
 	expectAssessmentDB("indikasi_ai")
@@ -457,6 +467,11 @@ func TestSimilarityIndikasiRingkasAndOpsUsage(t *testing.T) {
 	setAuthClaims(aiuCtx, 2, "guru")
 	require.NoError(t, h.CekIndikasiAI(aiuCtx))
 	assert.Equal(t, http.StatusOK, aiuRec.Code)
+	var aiuResp AssessmentCheckResponse
+	require.NoError(t, json.Unmarshal(aiuRec.Body.Bytes(), &aiuResp))
+	require.Len(t, aiuResp.Ringkasan, 1)
+	assert.Contains(t, aiuResp.Ringkasan[0], "Budi: 60% (Sedang)")
+	assert.Contains(t, aiuResp.Ringkasan[0], "Kosakata sangat formal")
 
 	// 3. Ringkas Dokumen
 	mock.ExpectExec("INSERT INTO ai_usage_log").WithArgs(int32(7), "bantuan_ai").WillReturnResult(pgxmock.NewResult("INSERT", 1))
@@ -467,6 +482,10 @@ func TestSimilarityIndikasiRingkasAndOpsUsage(t *testing.T) {
 	setAuthClaims(sumCtx, 7, "murid")
 	require.NoError(t, h.RingkasDokumen(sumCtx))
 	assert.Equal(t, http.StatusOK, sumRec.Code)
+	var sumResp ExplainMateriResponse
+	require.NoError(t, json.Unmarshal(sumRec.Body.Bytes(), &sumResp))
+	assert.Contains(t, sumResp.Jawaban, "Poin utama algoritma.")
+	assert.Contains(t, sumResp.Jawaban, "Langkah logis")
 
 	// 4. Ops Usage (admin only)
 	opsReq := httptest.NewRequest(http.MethodGet, "/ai/ops/usage", nil)
@@ -477,5 +496,63 @@ func TestSimilarityIndikasiRingkasAndOpsUsage(t *testing.T) {
 	assert.Equal(t, http.StatusOK, opsRec.Code)
 	assert.Contains(t, opsRec.Body.String(), "750000")
 
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestChatFallbackOnFreeRateLimitAndExtractsLampiranText(t *testing.T) {
+	origRoot := files.UploadRoot
+	files.UploadRoot = t.TempDir()
+	defer func() { files.UploadRoot = origRoot }()
+
+	subDir := filepath.Join(files.UploadRoot, "2026", "11", "23")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "materi.txt"), []byte("Tag <p> digunakan untuk membuat paragraf pada HTML."), 0o644))
+
+	calls := 0
+	var lastPayload map[string]any
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &lastPayload)
+		if calls == 1 {
+			assert.Equal(t, true, lastPayload["gunakan_model_gratis"])
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":{"code":"llm_unavailable","message":"Model AI tidak merespons setelah beberapa percobaan."}}`))
+			return
+		}
+		assert.Equal(t, false, lastPayload["gunakan_model_gratis"])
+		assert.Contains(t, lastPayload["isi_materi"], "Tag <p> digunakan untuk membuat paragraf")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"jawaban":"Tag <p> adalah elemen paragraf.","model":"google/gemma-4-26b-a4b-it","route":"paid","degraded":false,"berbasis_materi":true}`))
+	}))
+	defer upstream.Close()
+
+	mock, err := pgxmock.NewPool()
+	require.NoError(t, err)
+	defer mock.Close()
+	mock.ExpectExec("INSERT INTO ai_usage_log").WithArgs(int32(7), "bantuan_ai").WillReturnResult(pgxmock.NewResult("INSERT", 1))
+
+	h := &Handler{
+		db:         db.New(mock),
+		httpClient: upstream.Client(),
+		baseURL:    upstream.URL,
+		apiKey:     "test-ai-key",
+	}
+
+	e := echo.New()
+	e.Validator = utils.NewValidator()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/ai/chat",
+		bytes.NewBufferString(`{"pesan":"Apa fungsi tag <p>?","isi_materi":"HTML Dasar","lampiran_paths":["/uploads/2026/11/23/materi.txt"],"gunakan_model_gratis":true}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	setAuthClaims(c, 7, "murid")
+
+	require.NoError(t, h.Chat(c))
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 2, calls)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

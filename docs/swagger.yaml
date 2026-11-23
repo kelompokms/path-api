@@ -205,6 +205,204 @@ definitions:
     - penggunaID
     - role
     type: object
+  ai.AssessmentCheckRequest:
+    properties:
+      gunakan_model_gratis:
+        type: boolean
+      jenjang:
+        type: string
+      kode_kelas:
+        type: string
+      pengguna_ids:
+        items:
+          type: integer
+        type: array
+      postingan_id:
+        type: integer
+    required:
+    - kode_kelas
+    - postingan_id
+    type: object
+  ai.AssessmentCheckResponse:
+    properties:
+      analisa:
+        items:
+          type: string
+        type: array
+      rekap_file:
+        $ref: '#/definitions/files.UploadedPostinganFile'
+      ringkasan:
+        items:
+          type: string
+        type: array
+    type: object
+  ai.ChatMessage:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+    type: object
+  ai.ChatRequest:
+    properties:
+      gunakan_model_gratis:
+        type: boolean
+      isi_materi:
+        type: string
+      jenjang:
+        type: string
+      lampiran_paths:
+        items:
+          type: string
+        type: array
+      modes:
+        items:
+          type: string
+        type: array
+      pesan:
+        type: string
+      riwayat:
+        items:
+          $ref: '#/definitions/ai.ChatMessage'
+        type: array
+    required:
+    - pesan
+    type: object
+  ai.ChatResponse:
+    properties:
+      berbasis_materi:
+        type: boolean
+      degraded:
+        type: boolean
+      jawaban:
+        type: string
+      model:
+        type: string
+      route:
+        type: string
+    type: object
+  ai.ExplainMateriRequest:
+    properties:
+      deskripsi_materi:
+        type: string
+      diagram:
+        type: boolean
+      gunakan_model_gratis:
+        type: boolean
+      ilustrasi:
+        type: boolean
+      isi_materi:
+        type: string
+      jenjang:
+        type: string
+      kombinasi:
+        type: boolean
+      lampiran_paths:
+        items:
+          type: string
+        type: array
+      pertanyaan:
+        type: string
+      tabel:
+        type: boolean
+    required:
+    - pertanyaan
+    type: object
+  ai.ExplainMateriResponse:
+    properties:
+      file:
+        $ref: '#/definitions/files.UploadedPostinganFile'
+      jawaban:
+        type: string
+      judul:
+        type: string
+    type: object
+  ai.GenerateMateriRequest:
+    properties:
+      deskripsi_materi:
+        type: string
+      diagram:
+        type: boolean
+      format_keluaran:
+        type: string
+      gunakan_model_gratis:
+        type: boolean
+      ilustrasi:
+        type: boolean
+      jenjang:
+        type: string
+      judul:
+        type: string
+      kombinasi:
+        type: boolean
+      lampiran_paths:
+        items:
+          type: string
+        type: array
+      tabel:
+        type: boolean
+    required:
+    - judul
+    type: object
+  ai.GenerateMateriResponse:
+    properties:
+      deskripsi:
+        type: string
+      judul:
+        type: string
+      lampiran:
+        items:
+          $ref: '#/definitions/files.UploadedPostinganFile'
+        type: array
+    type: object
+  ai.KoreksiSiswaResult:
+    properties:
+      email:
+        type: string
+      label:
+        type: string
+      nama:
+        type: string
+      nilai:
+        type: integer
+      pengguna_id:
+        type: integer
+      saran:
+        type: string
+    type: object
+  ai.KoreksiTugasResponse:
+    properties:
+      analisa:
+        items:
+          type: string
+        type: array
+      hasil:
+        items:
+          $ref: '#/definitions/ai.KoreksiSiswaResult'
+        type: array
+      rekap_file:
+        $ref: '#/definitions/files.UploadedPostinganFile'
+    type: object
+  ai.RingkasDokumenRequest:
+    properties:
+      diagram:
+        type: boolean
+      fokus:
+        type: string
+      gunakan_model_gratis:
+        type: boolean
+      jenjang:
+        type: string
+      judul:
+        type: string
+      lampiran_paths:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - lampiran_paths
+    type: object
   auth.LoginRequest:
     properties:
       email:
@@ -1071,6 +1269,378 @@ paths:
       summary: Ubah Role Pengguna (Guru/Murid)
       tags:
       - Admin
+  /ai/chat:
+    post:
+      consumes:
+      - application/json
+      description: Mengirimkan pertanyaan materi ke layanan AI (ai.pathclass.app /v1/chat)
+        dengan dukungan riwayat percakapan
+      parameters:
+      - description: Permintaan Chat AI
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ai.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.ChatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Chat Bantuan Belajar dengan AI
+      tags:
+      - AI
+  /ai/dokumen/ringkas:
+    post:
+      consumes:
+      - application/json
+      description: Meringkas dokumen materi (PDF, DOCX, TXT, CSV) yang terlampir pada
+        materi kelas melalui ai.pathclass.app /v1/documents/summarize
+      parameters:
+      - description: Permintaan Ringkas Dokumen AI
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ai.RingkasDokumenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.ExplainMateriResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Ringkas Dokumen Materi Panjang dengan AI
+      tags:
+      - AI
+  /ai/indikasi:
+    post:
+      consumes:
+      - application/json
+      description: Memeriksa indikasi penggunaan AI pada jawaban tugas siswa melalui
+        ai.pathclass.app /v1/assessments/ai-usage
+      parameters:
+      - description: Permintaan Cek Indikasi AI
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ai.AssessmentCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.AssessmentCheckResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Periksa Indikasi Penggunaan AI pada Jawaban Siswa (Guru)
+      tags:
+      - AI
+  /ai/koreksi:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Mengoreksi kiriman tugas siswa menggunakan kunci jawaban (file
+        PDF/DOCX/TXT/CSV atau deskripsi kunci) melalui ai.pathclass.app /v1/assessments/grade
+      parameters:
+      - description: Kode Kelas
+        in: formData
+        name: kode_kelas
+        required: true
+        type: string
+      - description: ID Postingan Tugas
+        in: formData
+        name: postingan_id
+        required: true
+        type: integer
+      - description: Daftar ID pengguna siswa dipisahkan koma
+        in: formData
+        name: pengguna_ids
+        type: string
+      - description: Deskripsi kunci jawaban teks
+        in: formData
+        name: deskripsi_kunci
+        type: string
+      - description: Berkas kunci jawaban (PDF, DOCX, TXT, CSV)
+        in: formData
+        name: berkas_kunci
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.KoreksiTugasResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Koreksi Jawaban Tugas Siswa dengan AI (Guru)
+      tags:
+      - AI
+  /ai/materi/explain:
+    post:
+      consumes:
+      - application/json
+      description: Membuat penjelasan materi dalam bentuk dokumen PDF visual (tabel,
+        diagram, ilustrasi, atau kombinasi) melalui ai.pathclass.app /v1/materials/explain
+      parameters:
+      - description: Permintaan Penjelasan Materi AI
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ai.ExplainMateriRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.ExplainMateriResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Penjelasan Visual Materi dengan AI
+      tags:
+      - AI
+  /ai/materi/generate:
+    post:
+      consumes:
+      - application/json
+      description: Membuat materi pembelajaran berupa dokumen PDF atau PowerPoint
+        (PPTX) melalui ai.pathclass.app /v1/materials/generate (khusus guru atau admin)
+      parameters:
+      - description: Permintaan Pembuatan Materi AI
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ai.GenerateMateriRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.GenerateMateriResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Buat Materi Pembelajaran dengan AI (Guru)
+      tags:
+      - AI
+  /ai/ops/usage:
+    get:
+      description: Mengambil informasi sisa anggaran token berbayar dan kuota model
+        gratis dari ai.pathclass.app /v1/ops/usage (khusus admin)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Status Pemakaian Token & Kuota AI (Admin)
+      tags:
+      - AI
+  /ai/similarity:
+    post:
+      consumes:
+      - application/json
+      description: Memeriksa indikasi kemiripan/plagiasi antarjawaban siswa pada suatu
+        tugas melalui ai.pathclass.app /v1/assessments/similarity
+      parameters:
+      - description: Permintaan Cek Kemiripan AI
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ai.AssessmentCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.AssessmentCheckResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/utils.HTTPResponse'
+      summary: Periksa Kemiripan Jawaban Tugas Siswa (Guru)
+      tags:
+      - AI
   /auth/oauth/{provider}:
     get:
       description: Mengalihkan pengguna ke halaman persetujuan OAuth2 provider (google
